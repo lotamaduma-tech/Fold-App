@@ -1,0 +1,19 @@
+{
+  "name": "fold-money-notebook",
+  "version": "2.0.0",
+  "private": true,
+  "description": "FOLD — Your money, simply kept.",
+  "scripts": {
+    "start": "node serve.cjs",
+    "vendor": "node scripts/vendor.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "playwright": "1.63.0"
+  }
+}
