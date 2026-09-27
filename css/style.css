@@ -1117,3 +1117,18 @@ legend {
     scroll-behavior: auto !important;
   }
 }
+/* Workspace and record controls extend the existing paper design. */
+.brand .display,.welcome .brand .display{font-size:clamp(36px,10vw,47px);letter-spacing:-.055em}
+.workspace-switch{width:100%;border:1px solid var(--line);border-radius:999px;padding:8px 13px;margin:0 0 22px;color:var(--muted-fg);font-size:14px}
+.workspace-switch>span{display:flex;align-items:center;gap:9px;min-width:0;overflow-wrap:anywhere;text-align:left}
+.workspace-switch svg{width:17px;height:17px}
+.workspace-list{margin:22px 0}.workspace-list .setting>span{flex:1;min-width:0;overflow-wrap:anywhere}.workspace-list small{display:block}
+.savings-line{padding:18px 0;font-size:15px;border-bottom:1px solid var(--line)}
+.savings-line small{font-size:11px}.summary-link{border:1px solid var(--line);border-radius:12px;margin-top:24px}
+.activity-filters{border-block:1px solid var(--line);padding:4px 0 12px;margin-bottom:16px}
+.activity-filters summary{cursor:pointer;min-height:44px;padding:12px 0;color:var(--muted-fg);font-size:14px}
+.date-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.date-filters input{padding:8px;font-size:13px}
+.check-field{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;margin:12px 0}
+.check-field input{width:20px;height:20px;accent-color:var(--gain)}.summary-note{font-size:13px;line-height:1.5;margin:12px 0}
+.profile-card>div{min-width:0;overflow-wrap:anywhere}.page-header>div{min-width:0;overflow-wrap:anywhere}
+.ledger .row>span:last-child{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}

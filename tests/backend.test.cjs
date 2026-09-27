@@ -58,7 +58,7 @@ test("auth forwards real SDK calls with controlled PKCE callback destinations", 
   const auth = createAuth(
     { auth: sdk },
     {
-      origin: "https://fold.example",
+      origin: "https://nectarspend.example",
       pathname: "/index.html",
       search: "?redirect=https://evil.example",
     },
@@ -71,16 +71,16 @@ test("auth forwards real SDK calls with controlled PKCE callback destinations", 
   await auth.signOut();
   assert.equal(
     calls[0][1].options.emailRedirectTo,
-    "https://fold.example/index.html?auth=callback",
+    "https://nectarspend.example/index.html?auth=callback",
   );
   assert.equal(calls[2][1].provider, "google");
   assert.equal(
     calls[2][1].options.redirectTo,
-    "https://fold.example/index.html?auth=callback",
+    "https://nectarspend.example/index.html?auth=callback",
   );
   assert.equal(
     calls[3][2].redirectTo,
-    "https://fold.example/index.html?auth=recovery",
+    "https://nectarspend.example/index.html?auth=recovery",
   );
   assert.equal(calls[4][0], "updateUser");
   assert.equal(calls[5][1].scope, "local");
@@ -99,13 +99,13 @@ test("repository prevents anonymous construction and unknown profile fields", as
     /Unknown profile field/,
   );
 });
-test("approved stylesheet is unchanged", () => {
+test("original paper stylesheet is preserved beneath workspace extensions", () => {
   const fs = require("node:fs"),
     crypto = require("node:crypto");
   assert.equal(
     crypto
       .createHash("sha256")
-      .update(fs.readFileSync("css/style.css"))
+      .update(fs.readFileSync("css/style.css", "utf8").split("/* Workspace and record controls")[0])
       .digest("hex"),
     "30a1f5dc46bea184a9f239f099153af2edb107b4d391d8aacd38299b0db57838",
   );

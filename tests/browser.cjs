@@ -1,15 +1,15 @@
 /* Official SDK + test Auth transport + real PostgreSQL schema/RLS.
    Live email delivery, Google and hosted Supabase require project credentials. */
-const { chromium } = require(process.env.FOLD_PLAYWRIGHT || "playwright");
+const { chromium } = require(process.env.NECTARSPEND_PLAYWRIGHT || "playwright");
 const assert = require("node:assert/strict"),
   fs = require("node:fs");
 const { fixture } = require("./supabase-fixture.cjs");
-const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
+const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
 (async () => {
   const backend = await fixture();
   const browser = await chromium.launch({
-    ...(process.env.FOLD_BROWSER_PATH
-      ? { executablePath: process.env.FOLD_BROWSER_PATH }
+    ...(process.env.NECTARSPEND_BROWSER_PATH
+      ? { executablePath: process.env.NECTARSPEND_BROWSER_PATH }
       : process.platform === "win32"
         ? {
             executablePath:
@@ -49,14 +49,14 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await click("[data-action=logout]");
     await page.locator(".welcome").waitFor();
   }
-  async function setup(start = "30000") {
-    await page.locator("#setup-form").waitFor();
-    await click("#setup-form .primary");
-    await page.locator("#setup-form input").fill(start);
-    await click("#setup-form .primary");
-    await page.getByRole("button", { name: "Skip for now" }).click();
-    await page.getByRole("button", { name: "Open Fold" }).click();
-    await balance(Number(start).toLocaleString("en"));
+  async function setup(start='30000',kind='personal',mode=null){
+    await page.locator('#setup-form').waitFor();
+    if(mode){await page.locator('#setup-form select').selectOption(mode);await click('#setup-form .primary');await text('.setup h1','Your everyday currency');}
+    await click('#setup-form .primary');
+    await page.locator('#setup-form input').fill(start);
+    await click('#setup-form .primary');
+    if(kind==='personal')await page.getByRole('button',{name:'Skip for now'}).click();
+    await page.getByRole('button',{name:'Continue to workspace'}).click();
   }
   try {
     await page.goto(base);
@@ -80,7 +80,7 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     assert.ok(
       !(await page.locator("body").innerText()).includes("OLD USER SECRET"),
     );
-    await page.getByRole("button", { name: "Add money", exact: true }).click();
+    await page.getByRole("button", { name: "Add record", exact: true }).click();
     await click("#money-form .primary");
     await text("#money-error", "Enter an amount");
     await page.locator("#money-amount").fill("2000");
@@ -88,7 +88,7 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await page.locator("[name=note]").fill("Test lunch");
     backend.failNextWrite();
     await click("#money-form .primary");
-    await text("#money-error", "Could not save");
+    await text("#money-error", "complete this request");
     assert.equal(await page.locator("#money-amount").inputValue(), "2000");
     await balance("55,500");
     backend.delayNextWrite(400);
@@ -98,9 +98,10 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await balance("53,500");
     await page.reload();
     await balance("53,500");
-    await page.getByRole("button", { name: "Add money", exact: true }).click();
-    await page.getByRole("button", { name: "I saved", exact: true }).click();
+    await page.getByRole("button", { name: "Add record", exact: true }).click();
+    await page.getByRole("button", { name: "Money in", exact: true }).click();
     await page.locator("#money-amount").fill("1000");
+    await page.locator("#record-savings").check();
     await page.locator("[name=goalId]").selectOption({ index: 1 });
     await page.locator("[name=note]").fill("Test save");
     await click("#money-form .primary");
@@ -109,9 +110,9 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await click("nav [data-page=history]");
     await page.locator("#history-search").fill("Test save");
     assert.equal(await page.locator(".transaction").count(), 1);
-    await click("[data-filter=spent]");
+    await click("[data-filter=expense]");
     assert.equal(await page.locator(".transaction").count(), 0);
-    await click("[data-filter=saved]");
+    await click("[data-filter=income]");
     await click(".transaction");
     await page
       .getByRole("button", { name: "Delete this entry", exact: true })
@@ -148,6 +149,60 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await page.getByRole("button", { name: "Save changes" }).click();
     await sheetClosed();
     await text(".profile-card", "<Alice & Co>");
+    // Edit an existing record, persist through reload, then restore its amount.
+    await click('nav [data-page=history]');
+    await page.locator('#history-search').fill('Test lunch');
+    await click('.transaction');
+    await click('[data-action=edit-record]');
+    await page.locator('#money-amount').fill('2500');
+    await click('#money-form .primary');await sheetClosed();
+    await click('nav [data-page=home]');await balance('53,000');
+    await page.reload();await balance('53,000');
+    await click('nav [data-page=history]');
+    await page.locator('#history-search').fill('Test lunch');await click('.transaction');await click('[data-action=edit-record]');
+    await page.locator('#money-amount').fill('2000');await click('#money-form .primary');await sheetClosed();
+    await click('nav [data-page=home]');await balance('53,500');
+    // A savings allocation changes goal progress but never creates money.
+    await click('nav [data-page=goals]');
+    await page.locator('[data-action=goal-options]').last().click();await click('[data-action=allocate]');
+    await page.locator('#money-amount').fill('500');await page.locator('[name=note]').fill('Allocation only');
+    await click('#money-form .primary');await sheetClosed();
+    await page.reload();await balance('53,500');
+    await click('nav [data-page=history]');await page.locator('#history-search').fill('Allocation only');
+    await click('[data-filter=saving]');assert.equal(await page.locator('.transaction').count(),1);
+    await click('.activity-filters summary');await page.locator('#activity-category').selectOption('Savings');
+    await page.locator('#date-from').fill('2099-01-01');assert.equal(await page.locator('.transaction').count(),0);
+    await page.locator('#date-to').fill('2000-01-01');await text('#history-results','Choose an end date');
+    await click('[data-action=reset-filters]');
+    // Create a second workspace and verify separate data, navigation and cash/result summaries.
+    await click('[data-action=workspaces]');await click('[data-action=new-workspace]');
+    await page.locator('#workspace-form [name=name]').fill('My Store');await page.locator('#workspace-form [name=kind]').selectOption('business');
+    await click('#workspace-form .primary');await text('.setup h1','Your everyday currency');
+    await setup('1000','business');await balance('1,000');
+    assert.equal(await page.locator('nav [data-page=goals]').count(),0);
+    assert.equal(await page.locator('.transaction').count(),0);
+    async function businessRecord(type,amount,category,note){
+      await page.getByRole('button',{name:'Add record',exact:true}).click();
+      await page.getByRole('button',{name:type,exact:true}).click();
+      assert.equal(await page.locator('#record-savings').count(),0);
+      await page.locator('#money-amount').fill(amount);
+      await page.getByRole('button',{name:category,exact:true}).click();
+      await page.locator('[name=note]').fill(note);await click('#money-form .primary');await sheetClosed();
+    }
+    await businessRecord('Money in','2000','Sales','Store sale');
+    await businessRecord('Money in','500','Loan','Store loan');
+    await businessRecord('Money out','600','Stock','Store stock');
+    await businessRecord('Money out','200','Rent','Store rent');
+    await balance('2,700');await page.reload();await balance('2,700');
+    await click('nav [data-page=records]');await text('#app','Simple operating result');await text('#app','1,800');await text('#app','not accounting profit');
+    await click('[data-period=week]');await text('#app','4 records');
+    await page.screenshot({path:'tests/artifacts/business-summary.png',fullPage:true});
+    for(const width of [320,390,1440]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'business summary overflow');}
+    await click('[data-action=workspaces]');await page.locator('.workspace-list button').filter({hasText:'Personal'}).click();
+    await balance('53,500');assert.ok(!(await page.locator('#app').innerText()).includes('Store sale'));
+    await page.reload();await balance('53,500');
+    await click('nav [data-page=you]');
+
     for (const width of [320, 360, 375, 390, 412, 430, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       for (const tab of ["home", "history", "goals", "you"]) {
@@ -161,15 +216,11 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
       }
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await click("[data-action=restore]");
-    await click("[data-action=confirm-restore]");
-    await sheetClosed();
-    await page.locator(".profile-card").waitFor();
     await click("nav [data-page=home]");
-    await balance("55,500");
+    await balance("$53,500");
     fs.mkdirSync("tests/artifacts", { recursive: true });
     await page.screenshot({ path: "tests/artifacts/home.png", fullPage: true });
-    await page.getByRole("button", { name: "Add money", exact: true }).click();
+    await page.getByRole("button", { name: "Add record", exact: true }).click();
     await page.locator("#money-amount").fill("2000");
     await page.screenshot({ path: "tests/artifacts/add-money.png" });
     await page.keyboard.press("Escape");
@@ -180,7 +231,7 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     assert.equal(await page.locator(".balance-card").count(), 0);
     backend.restoreNetwork();
     await click("[data-action=retry]");
-    await balance("55,500");
+    await balance("53,500");
     const second = await browser.newContext();
     await backend.install(second);
     const device = await second.newPage();
@@ -190,17 +241,18 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await device.locator("[name=password]").fill("fixture-password-123");
     await device.locator("#auth-form [type=submit]").click();
     await device.waitForFunction(() =>
-      document.querySelector(".balance-card")?.textContent.includes("55,500"),
+      document.querySelector(".balance-card")?.textContent.includes("53,500"),
     );
     await second.close();
     await logout();
     await login("bob@example.test");
-    await setup("0");
+    await setup("0", "personal", "personal");
+    await balance("₦0");
     assert.ok(!(await page.locator("#app").innerText()).includes("Lunch"));
     assert.equal(await page.locator(".transaction").count(), 0);
     await logout();
     await page
-      .getByRole("button", { name: "Create a Fold account", exact: true })
+      .getByRole("button", { name: "Create a NectarSpend account", exact: true })
       .click();
     await page.locator("[name=email]").fill("new@example.test");
     await page.locator("[name=password]").fill("fixture-password-123");
@@ -210,13 +262,15 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
       "text",
     );
     await click("#auth-form [type=submit]");
-    await text("#sheet-title", "Check your email");
-    assert.equal(await page.locator(".balance-card").count(), 0);
-    await page.getByRole("button", { name: "Close dialog" }).click();
-    await page.getByRole("button", { name: "Back to welcome" }).click();
-    backend.accounts.get("new@example.test").confirmed = true;
-    await login("new@example.test");
-    await setup();
+    await text('.setup h1','How will you use NectarSpend?');
+    await setup('30000','personal','both');
+    await text('.setup h1','Your everyday currency');
+    await setup('5000','business');
+    await balance('5,000');
+    assert.equal(await page.locator('nav [data-page=records]').count(),1);
+    await click('[data-action=workspaces]');
+    await page.locator('.workspace-list button').filter({hasText:'Personal'}).click();
+    await balance('30,000');
     await logout();
     await page.getByRole("button", { name: "Log in", exact: true }).click();
     await click("[data-action=google]");
@@ -250,23 +304,19 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await text("#password-error", "do not match");
     await page.locator("[name=confirmation]").fill("new-fixture-password");
     await click("#password-form .primary");
-    await balance("55,500");
+    await balance("53,500");
     assert.equal(
       backend.accounts.get("alice@example.test").password,
       "new-fixture-password",
     );
     await click("nav [data-page=you]");
-    await click("[data-action=clear]");
-    await click("[data-action=confirm-clear]");
-    await page.locator("#setup-form").waitFor();
-    await setup("0");
-    await page.reload();
-    await balance("₦0");
+    await click("nav [data-page=home]");
+    await balance("53,500");
     // Sign-out in another tab must clear an open form and discard a late save response.
     const otherTab = await context.newPage();
     await otherTab.goto(base);
     await otherTab.locator(".balance-card").waitFor();
-    await page.getByRole("button", { name: "Add money", exact: true }).click();
+    await page.getByRole("button", { name: "Add record", exact: true }).click();
     await page.locator("#money-amount").fill("99");
     await page.locator("#money-form [name=note]").fill("Private late entry");
     backend.delayNextWrite(1500);
@@ -290,6 +340,7 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     );
     // Unconfigured production bundle fails closed, with no test transport available.
     const unconfigured = await browser.newContext();
+    await unconfigured.route('**/config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.NECTARSPEND_CONFIG={};'}));
     const plain = await unconfigured.newPage();
     await plain.goto(base);
     await plain.waitForFunction(() =>
@@ -308,7 +359,7 @@ const base = process.env.FOLD_TEST_URL || "http://127.0.0.1:4174";
     await expired.close();
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: official SDK auth/data flows with test transport; PostgreSQL persistence, UI regression, 7 widths, failure/retry, confirmation, PKCE, recovery, two accounts and two browser contexts. No page errors.",
+      "PASS: official SDK auth/data flows with test transport; PostgreSQL persistence, UI regression, 7 widths, failure/retry, direct signup, Both onboarding, PKCE, recovery, two accounts and two browser contexts. No page errors.",
     );
   } catch (error) {
     console.error(

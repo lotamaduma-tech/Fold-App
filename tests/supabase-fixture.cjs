@@ -43,10 +43,11 @@ async function fixture() {
   accounts.set("alice@example.test", account(A, "alice@example.test"));
   accounts.set("bob@example.test", account(B, "bob@example.test"));
   await db.query("insert into auth.users values ($1),($2)", [A, B]);
-  await db.query("insert into profiles(user_id) values ($1),($2)", [A, B]);
-  await db.exec(`set role authenticated;set request.jwt.claim.sub='${A}';`);
-  await db.query("select fold_replace_notebook($1,true,current_date)", [A]);
-  await db.exec("reset role");
+  await db.query("insert into profiles(user_id,starting_balance,monthly_spend_cap,onboarding_completed) values ($1,45000,25000,true)", [A]);
+  const seed=require('./sample.cjs').sampleData();
+  for(const g of seed.goals)await db.query('insert into goals(id,user_id,name,target) values ($1,$2,$3,$4)',[g.id,A,g.name,g.target]);
+  for(const t of seed.transactions)await db.query('insert into transactions(id,user_id,type,amount,category,note,date,goal_id,created_at) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)',[t.id,A,t.type,t.amount,t.category,t.note,t.date,t.goalId,t.createdAt]);
+  await db.exec(fs.readFileSync('supabase/migrations/002_workspaces.sql','utf8'));
   function session(a) {
     const now = Math.floor(Date.now() / 1000),
       encode = (x) => Buffer.from(JSON.stringify(x)).toString("base64url");
@@ -106,7 +107,7 @@ async function fixture() {
     calls.push({ path, method });
     if (path === "/auth/v1/signup") {
       if (!accounts.has(body.email)) {
-        const a = account(crypto.randomUUID(), body.email, false);
+        const a = account(crypto.randomUUID(), body.email, true);
         a.password = body.password;
         accounts.set(body.email, a);
         await serial(async () => {
@@ -114,7 +115,7 @@ async function fixture() {
           await db.query("insert into auth.users values ($1)", [a.id]);
         });
       }
-      return json(route, { ...accounts.get(body.email).user, identities: [] });
+      return json(route, session(accounts.get(body.email)));
     }
     if (path === "/auth/v1/token") {
       const grant = url.searchParams.get("grant_type");
@@ -192,18 +193,12 @@ async function fixture() {
           await db.exec(
             `reset role;set role authenticated;set request.jwt.claim.sub='${a.id}';`,
           );
-          if (path.endsWith("/rpc/fold_replace_notebook")) {
-            await db.query("select fold_replace_notebook($1,$2,$3)", [
-              body.p_expected_user_id,
-              body.p_sample,
-              body.p_today,
-            ]);
-            return { rows: null };
-          }
+          if(path.endsWith('/rpc/nectar_initialize_workspaces')){await db.query('select nectar_initialize_workspaces($1,$2)',[body.p_expected_user_id,body.p_mode]);return {rows:null};}
+          if(path.endsWith('/rpc/nectar_complete_workspace')){await db.query('select nectar_complete_workspace($1,$2)',[body.p_expected_user_id,body.p_workspace_id]);return {rows:null};}
           const table = path.split("/").at(-1);
-          if (!["profiles", "goals", "transactions"].includes(table))
+          if (!["profiles", "goals", "transactions", "workspaces"].includes(table))
             throw Error("Unknown table");
-          const allowed = new Set([
+          const allowed = new Set(["workspace_id","record_kind","is_savings","usage_mode","kind","setup_completed","is_legacy_default",
             "id",
             "user_id",
             "name",
@@ -303,10 +298,10 @@ async function fixture() {
       await context.route("**/config.js", (route) =>
         route.fulfill({
           contentType: "text/javascript",
-          body: 'window.FOLD_CONFIG={SUPABASE_URL:"https://fold-tests.supabase.co",SUPABASE_PUBLISHABLE_KEY:"sb_publishable_fixture_only"};',
+          body: 'window.NECTARSPEND_CONFIG={SUPABASE_URL:"https://nectar-tests.supabase.co",SUPABASE_PUBLISHABLE_KEY:"sb_publishable_fixture_only"};',
         }),
       );
-      await context.route("https://fold-tests.supabase.co/**", (route) =>
+      await context.route("https://nectar-tests.supabase.co/**", (route) =>
         routeRequest(route).catch((error) => {
           console.error("Fixture transport failure:", error.message);
           return route.abort();

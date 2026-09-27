@@ -10,7 +10,7 @@
     ).trim();
     if (!url || !key)
       throw new Error(
-        "Fold is not connected yet. Add your Supabase project URL and public key to config.js.",
+        "NectarSpend is not connected yet. Add your Supabase project URL and public key to config.js.",
       );
     const parsed = new URL(url);
     if (
@@ -144,5 +144,5 @@
   }
   const api = { connect, validateConfig, createAuth };
   if (typeof module !== "undefined") module.exports = api;
-  else root.FoldBackend = api;
+  else root.NectarBackend = api;
 })(globalThis);

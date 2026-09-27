@@ -1,0 +1,5 @@
+        }else if(form.id==='setup-form'){
+          const ticket=epoch;
+          if(setupStep===0){await repo.initializeWorkspaces(String(data.get('value')));if(ticket!==epoch)return;await reloadWorkspace(null);}
+          else if(setupStep===4){const id=state.workspace.id;await repo.completeWorkspace(id);if(ticket!==epoch)return;await reloadWorkspace(id);}
+          else{const patch=setupStep===1?{currency:data.get('value')}:setupStep===2?{startingBalance:Number(data.get('value'))}:{monthlySpendCap:Number(data.get('value')||0)};const w=await repo.updateWorkspace(state.workspace.id,patch);if(ticket!==epoch)return;applyWorkspace(w);setupStep=setupStep===2&&business()?4:setupStep+1;render();}

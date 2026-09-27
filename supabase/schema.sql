@@ -1,4 +1,4 @@
--- FOLD initial migration. Run in the Supabase SQL editor as the project owner.
+-- NectarSpend base schema (legacy database identifiers retained for compatibility). Run in the Supabase SQL editor as the project owner.
 -- Transactional and rerunnable for this schema; does not delete existing rows.
 begin;
 
@@ -76,38 +76,4 @@ begin
   end loop;
 end $$;
 
--- Explicit confirmed reset/seed, performed atomically. No privileged definer.
--- The owner argument detects a session change; it never grants access.
-create or replace function public.fold_replace_notebook(p_expected_user_id uuid,p_sample boolean default false,p_today date default current_date)
-returns void language plpgsql security invoker set search_path = '' as $$
-declare uid uuid := auth.uid(); books uuid := gen_random_uuid(); phone uuid := gen_random_uuid();
-begin
-  if uid is null or uid is distinct from p_expected_user_id then
-    raise exception 'Authentication changed. Reload your notebook.' using errcode='42501';
-  end if;
-  if p_today is null or p_today not between date '0001-01-11' and date '9999-12-31' then
-    raise exception 'Invalid sample date.' using errcode='22023';
-  end if;
-  perform 1 from public.profiles where user_id=uid for update;
-  if not found then raise exception 'Profile is missing.'; end if;
-  delete from public.transactions where user_id=uid;
-  delete from public.goals where user_id=uid;
-  if p_sample then
-    update public.profiles set currency='NGN',starting_balance=45000,monthly_spend_cap=25000,onboarding_completed=true where user_id=uid;
-    insert into public.goals(id,user_id,name,target,created_at) values (books,uid,'School books',15000,now()-interval '1 second'),(phone,uid,'New phone',80000,now());
-    insert into public.transactions(user_id,type,amount,category,note,date,goal_id,created_at) values
-      (uid,'spent',2000,'Food','Lunch',p_today,null,p_today + time '12:30'),
-      (uid,'saved',5000,'Allowance','Saved for books',p_today,books,p_today + time '11:30'),
-      (uid,'spent',800,'Transport','Bus home',p_today-1,null,p_today-1 + time '10:30'),
-      (uid,'spent',3500,'Fun','Cinema',p_today-3,null,p_today-3 + time '12:30'),
-      (uid,'saved',10000,'Work','Weekend job',p_today-5,phone,p_today-5 + time '11:30'),
-      (uid,'spent',1200,'Food','Snacks',p_today-6,null,p_today-6 + time '10:30'),
-      (uid,'saved',3000,'Gift','Birthday money',p_today-10,books,p_today-10 + time '12:30');
-  else
-    update public.profiles set name=null,currency='NGN',starting_balance=0,monthly_spend_cap=0,onboarding_completed=false where user_id=uid;
-  end if;
-end;
-$$;
-revoke all on function public.fold_replace_notebook(uuid,boolean,date) from public,anon;
-grant execute on function public.fold_replace_notebook(uuid,boolean,date) to authenticated;
 commit;

@@ -53,5 +53,5 @@ http
     });
   })
   .listen(Number(process.env.PORT || 4173), "127.0.0.1", () =>
-    console.log(`Fold is open at http://127.0.0.1:${process.env.PORT || 4173}`),
+    console.log(`NectarSpend is open at http://127.0.0.1:${process.env.PORT || 4173}`),
   );
