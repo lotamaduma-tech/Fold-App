@@ -14,6 +14,10 @@ test("static build publishes only browser assets and rejects privileged configur
     fs.copyFileSync("scripts/build.cjs", path.join(root, "scripts/build.cjs"));
     fs.copyFileSync("js/backend.js", path.join(root, "js/backend.js"));
     fs.copyFileSync("js/errors.js", path.join(root, "js/errors.js"));
+    fs.copyFileSync(
+      "assets/nectarspend-social.png",
+      path.join(root, "assets/nectarspend-social.png"),
+    );
     fs.writeFileSync(
       path.join(root, "index.html"),
       "<title>NectarSpend</title>",
@@ -31,6 +35,10 @@ test("static build publishes only browser assets and rejects privileged configur
       encoding: "utf8",
     });
     assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      fs.readFileSync(path.join(root, "dist/assets/nectarspend-social.png")),
+      fs.readFileSync("assets/nectarspend-social.png"),
+    );
     assert.deepEqual(fs.readdirSync(path.join(root, "dist")).sort(), [
       "assets",
       "config.js",

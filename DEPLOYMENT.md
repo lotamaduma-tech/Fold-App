@@ -51,6 +51,8 @@ https://www.nectarspend.com/**
 
 Keep Email/password and Google enabled, and **keep email confirmation disabled**. A successful signup session proceeds directly to onboarding. The app never requires a confirmation step; a missing signup session is reported as an account-configuration/login problem. Password-recovery emails remain necessary for password resets.
 
+If the app's `redirectTo` is missing from Supabase's redirect allowlist, Supabase may fall back to the configured Site URL. A stale localhost Site URL can therefore send a production login back to localhost even when the frontend sends the correct production `redirectTo`. Verify both dashboard settings and redeploy any stale frontend build. The current frontend already sends the approved current origin explicitly for Google, signup and recovery; no redirect implementation change was needed for the social-sharing update.
+
 The app generates `/?auth=callback` or `/?auth=recovery` on the current approved origin. `/index.html` is also supported when that is the entry path. It ignores `next`, `redirect` and other user-supplied destinations. Unlisted origins, lookalike domains and protocol-relative callback paths cannot select an external destination. The hostname wildcard `*.vercel.app` is not allowed by the app.
 
 The included local server defaults to 4173, and the automated browser server uses 4174. Those explicit localhost/127.0.0.1 origins are retained as development compatibility origins. If using live auth on those ports, add their corresponding `/**` entries in Supabase as well. To use the requested port instead, run `$env:PORT='5500'` then `npm start`, or use VS Code Live Server.
@@ -74,7 +76,7 @@ https://www.nectarspend.com
 The **Authorized redirect URI** is the existing Supabase Google provider callback, copied exactly from **Supabase → Authentication → Sign In / Providers → Google**:
 
 ```text
-https://<YOUR-SUPABASE-PROJECT-REF>.supabase.co/auth/v1/callback
+https://mefjhllaaintjxwqujyl.supabase.co/auth/v1/callback
 ```
 
 It is your configured `SUPABASE_URL` followed by `/auth/v1/callback`. Do not substitute an application-domain callback here. Keep Google's client ID/secret in Supabase provider settings only. Check OAuth consent-screen publishing/test-user settings for the accounts you intend to use.
@@ -101,7 +103,17 @@ After running SQL and deploying, verify a real signup, login, Google return, res
 
 Concurrent edits remain last-write-wins, and there is no immutable accounting audit log or full accounting-profit calculation. These are existing V1 limits; authorization is enforced by RLS and composite foreign keys rather than UI filtering alone.
 
-## Continuation result and changed files
+## Authentication and social-sharing update
+
+The redirect implementation was already correct and was preserved. Regression tests now verify the actual Google, signup email and recovery SDK arguments on each of the five requested origins, including malicious redirect query parameters. Remaining loopback references are approved development origins, local server configuration, diagnostics or tests; no production-to-localhost destination was found.
+
+`index.html` includes the canonical public URL, product description, complete Open Graph tags and Twitter large-image card tags. `assets/nectarspend-social.png` exists at 1200 × 630 and is copied unchanged to `dist/assets/nectarspend-social.png` by the existing asset build. To regenerate the card with local Chrome and the installed Playwright dependency, run `node scripts/social-preview.cjs`.
+
+Redeploy Vercel to publish the updated HTML and image. Dashboard URL settings must be verified separately; they are not changed by a deployment. Social platforms may cache older previews and may need their preview cache refreshed after deployment. No live production OAuth flow or dashboard configuration was tested for this update.
+
+**Update validation:** `npm test`: **49 passed, 0 failed**. Existing browser regression suite: **1 passed, 0 failed, 0 page errors**, including all five required origins with local test transport. `npm run build`: **passed**, with the social image included. JavaScript syntax checks: **24 files passed**.
+
+## Previous continuation result and changed files
 
 Already complete before this continuation: the NectarSpend rebrand, existing paper UI, Supabase authentication, workspace onboarding/switching, personal/business records, goals, editing/deletion, savings calculations and summaries. These were preserved.
 
