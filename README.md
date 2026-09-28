@@ -1,126 +1,110 @@
-# FOLD
+﻿# NectarSpend
 
-Your money, simply kept.
+**Know your money.**
 
-FOLD retains its approved HTML/CSS/vanilla JavaScript interface. Authentication and financial storage now use the official Supabase JavaScript client, Supabase Auth, and PostgreSQL. There is no demo login or local financial database. Until the configuration below is completed, Fold shows a connection notice and cannot authenticate.
+A mobile-first personal and small-business record keeper, built on the existing HTML/CSS/vanilla JavaScript application. Users manually record activity that happened elsewhere. NectarSpend does not hold or move money.
 
-## 1. Create and configure Supabase
+## Upgrade the existing Supabase project
 
-1. Create a project in the [Supabase dashboard](https://supabase.com/dashboard).
-2. From the project's Connect/API settings, copy the **Project URL** and **publishable key** (`sb_publishable_…`). A legacy `anon` key is also supported. Do **not** use `sb_secret_…`, `service_role`, a database password, or a Google client secret in browser code.
-3. Open the existing **`config.js`** in the project root and fill only these two values:
+Your existing public configuration and Supabase authentication are preserved. **Keep email confirmation disabled**, as configured: signup with a session goes directly to onboarding. Google, persistent sessions, logout and password recovery still use the official Supabase SDK.
 
-   ```js
-   window.FOLD_CONFIG = Object.freeze({
-     SUPABASE_URL: "https://YOUR_PROJECT_REF.supabase.co",
-     SUPABASE_PUBLISHABLE_KEY: "YOUR_PUBLIC_PUBLISHABLE_KEY",
-   });
-   ```
+1. Back up the existing database before deploying a schema change.
+2. In the existing project's SQL Editor, run **`supabase/migrations/002_workspaces.sql`** as the project owner. Do not rerun the base schema as a substitute for this upgrade. The migration runs transactionally and was tested on the included original schema, including rerunning it.
+3. Deploy the updated frontend after that migration succeeds. Refresh any already-open app tabs.
 
-   `config.js` is gitignored. For a fresh checkout, copy `config.example.js` to `config.js`. Browser configuration is public by design; RLS, not hiding this key, protects the database. No real credentials are supplied in this repository.
+For a completely new project only, run `supabase/schema.sql` first, then `supabase/migrations/002_workspaces.sql`. PostgreSQL 15+ is required for column-specific foreign-key unlinking.
 
-4. Open the project's **SQL Editor**, paste all of **`supabase/schema.sql`**, and run it. Use a fresh project or inspect any pre-existing tables named `profiles`, `goals`, and `transactions` before applying. This is an initial migration, not a converter for unrelated existing schemas. It runs in a transaction and can be rerun against the same Fold schema. It requires PostgreSQL 15 or later (current hosted Supabase supports the column-specific foreign-key action used here).
-5. Under **Authentication → Sign In / Providers**, enable Email/password. Set a minimum password length of at least 8. Keep email confirmation enabled for production. Configure an SMTP provider for dependable public email delivery and review the project's email rate limits. Fold handles both confirmation-required signup (no session yet) and immediate-session signup if confirmation is disabled.
+The upgrade retains `profiles`, `goals` and `transactions`; it does not rename or recreate those tables. It adds `workspaces`, assigns existing records/goals to a Personal workspace, copies that user's currency/budget/setup state, and preserves IDs, amounts, dates and goal associations. Historical `saved` entries remain income marked as savings, preserving their original balance/progress effect. No sample records are inserted. The old sample-replacement RPC is removed. Legacy SQL object names and an old configuration-global fallback remain solely for compatibility.
 
-## 2. Redirect URLs and Google
+## Use the app
 
-Use one consistent development origin: **`http://127.0.0.1:4173/`**. `localhost` is a different origin and cannot share the PKCE verifier/session with `127.0.0.1`.
+New accounts choose **Personal, Business or Both**, then set each workspace's currency, starting balance and optional personal spending cap. Existing accounts keep their Personal records and can add a business through the workspace switcher. More named workspaces can be added later; their type is fixed to protect record semantics.
 
-In **Authentication → URL Configuration**:
+- **Personal:** Home / Activity / Goals / You. Record income and expenses, mark income as savings, or allocate existing balance to savings. Create targets and link savings to goals. Deleting a goal keeps its records and unlinks them.
+- **Business:** Home / Activity / Records / You. Record sales, funding and loans separately from stock, operating costs, owner draws and loan repayments. There are no personal savings goals in a business workspace.
+- **Activity:** search notes/categories/amounts; filter by type, category or date range; edit or delete records. Changes are saved to Supabase before updating the UI.
+- **Summaries:** calendar weeks (Monday–Sunday) or months, cash in/out, difference, record count and expense categories. Personal also shows recorded savings. Empty periods do not invent insights.
 
-- Set the development **Site URL** to `http://127.0.0.1:4173/`.
-- Add these exact **Redirect URLs**:
-  - `http://127.0.0.1:4173/?auth=callback`
-  - `http://127.0.0.1:4173/?auth=recovery`
-- If you deliberately open `/index.html`, also allow `/index.html?auth=callback` and `/index.html?auth=recovery` on that origin. Prefer using `/` consistently.
-- Before deploying, set Site URL to your HTTPS production origin and add its exact callback/recovery equivalents. Avoid wildcard production redirects.
+### Calculation rules
 
-For Google:
+`Calculated balance = starting balance + recorded income − recorded expenses`.
 
-1. Create a Google Cloud OAuth client of type **Web application** and configure the consent screen. Add your test users while the Google application is in testing mode.
-2. Copy the **Supabase Google provider callback URL** from the Supabase dashboard (usually `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`) into Google's **Authorized redirect URIs**. This is different from Fold's application callback URL above.
-3. Configure your app's origins in Google where requested.
-4. Enable Google in Supabase Auth providers and place the Google Client ID and Client Secret **in Supabase's provider settings only**.
+Savings from **new income** count once as income and are also tagged as savings. A savings allocation from **existing balance** affects savings/goal progress only; it does not increase or decrease total balance. Savings totals are recorded allocations, not a separate cash account or available-to-spend guarantee. Editing/deleting records recalculates totals.
 
-Fold uses the SDK's PKCE flow, `signInWithOAuth`, automatic callback code exchange, and auth-state events. It never reads or manually stores Google tokens. Redirect destinations are constructed from the current app origin/path, never from a user-supplied `next` URL.
+Business summaries distinguish all cash movements from sales revenue. **Simple operating result = recorded Sales − Delivery/Rent/Utilities/Wages/Other operating expenses.** It excludes stock purchases, owner funding/draws and loans/repayments; it also lacks tax, cost of goods sold and unrecorded costs. The UI explicitly labels this as not accounting profit. Inventory, accrual accounting and full profit/loss reporting are deferred.
 
-## 3. Email confirmation and password reset
+Amounts use integer-cent accumulation and `Intl.NumberFormat`. NGN is the default; USD, GBP, EUR, GHS and KES are supported. Changing workspace currency relabels numeric amounts; the form explicitly states that no currency conversion occurs. Different workspaces are never summed together.
 
-Leave the standard Supabase confirmation/recovery templates using `{{ .ConfirmationURL }}`, or ensure any customized template still preserves the requested redirect destination. Fold sends `?auth=callback` for confirmation and `?auth=recovery` for password recovery.
-
-With this client-only PKCE setup, open confirmation/recovery links **in the same browser and origin that requested them**. Request a new recovery link from the desired browser if necessary. An expired or invalid link shows an error rather than granting access. Normal login works on any device after email confirmation.
-
-The recovery link establishes a Supabase recovery session, then Fold shows the new-password form and calls `updateUser`. **You → Change password** also calls `updateUser`; when Secure Password Change requires recent authentication, the form can send a reauthentication code and submit its nonce. Enable and test this setting in your project.
-
-## 4. Run locally or deploy
-
-```sh
-node serve.cjs
-```
-
-Open **http://127.0.0.1:4173/**. Use HTTP locally / HTTPS in production, not a `file://` page. No framework or application build step is required. The official SDK is bundled in `assets/supabase.js` from the exact dependency pinned in `package-lock.json`; Lucide has a local copy too.
-
-To reinstall dependencies or update the bundled copy from the lockfile:
+## Run and build
 
 ```sh
 npm ci
-npm run vendor
+npm start
 ```
 
-Deploy `index.html`, `config.js`, `css/`, `js/`, and `assets/` to a static HTTPS host. Supply the frontend-safe configuration during deployment because it is gitignored. Do not publish `.env` files, `node_modules`, tests, or SQL tooling. The local server deliberately serves only the app assets. Configure `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, and anti-framing headers on the host too. Final operator-specific service terms/privacy policy and production email/provider settings must be completed before public launch.
+Open **http://127.0.0.1:4173/**. No framework or app compilation is required for local development. If that port is already in use, use another `PORT` and add its exact auth redirects if testing live authentication.
 
-## Data and security behavior
+`config.js` remains gitignored. For a new checkout, copy `config.example.js` to `config.js` and supply the Supabase project URL and **public publishable key** (or legacy anon key). Never put a service-role key, secret key, database password or Google client secret in the frontend. Configuration validation rejects privileged keys.
 
-- Every new account starts with an empty profile, no transactions, no goals, and onboarding required. Optional Google names may initialize the profile; email always comes from the authenticated user.
-- `profiles`, `goals`, and `transactions` all have enabled/forced RLS, authenticated CRUD policies and restrictive owner guards using `auth.uid()`. Anonymous table privileges are revoked. Frontend owner filters provide additional scoping but are not the authorization boundary.
-- A composite foreign key `(user_id, goal_id)` prevents cross-account goal links. Deleting a goal atomically sets only `goal_id` to null; transactions and amounts remain intact.
-- Profile values, amounts, currencies, categories, date ranges, text lengths, and transaction types have database constraints. `updated_at` triggers and user/date/goal indexes are included.
-- Confirmed **Restore sample data** calls an atomic, `SECURITY INVOKER` RPC. It replaces only the signed-in user's entries/goals, resets currency and budget to the NGN example, and retains their name/account. It never runs automatically.
-- Confirmed **Clear everything** clears financial records and profile settings across devices, then returns to onboarding. It does not delete the Supabase Auth account.
-- The Supabase SDK manages its own persisted session, refresh, and cross-tab auth events. Passwords are not saved by Fold. The old `fold-budget-v1` demo storage is **never read or imported**; it is left untouched for recovery of old demo records and can be removed via browser site storage if no longer needed. It cannot appear in any authenticated notebook.
-- Financial state exists only in memory between server requests. Sign-out/account changes clear the UI, sheets, drafts, and memory. Generation checks discard late responses from old sessions. Session changes never fall back to sample records.
-- Writes await server success. Pending controls prevent double submission; a stable draft UUID makes an insert retry after an uncertain response safe. Failed forms keep input and show an error. Loads have a retry state. A confirmed bulk reset whose follow-up read fails is clearly reported as saved, with a reload option.
-- Returning to the browser tab refreshes data when no form is open; signing in or refreshing always loads the server notebook. This is cross-device persistence, not continuous realtime collaboration. Concurrent edits to the same profile field use the last successful write. Goals and transactions are paginated beyond the default API row limit.
-- The existing ledger formula, monthly date semantics, number words, currencies, and goal totals are preserved. Currency changes relabel amounts; they do not convert exchange rates.
+```sh
+npm run build
+```
 
-## Tests
+Creates `dist/` containing only `index.html`, browser scripts/styles/assets and public configuration. It reads `SUPABASE_URL` plus `SUPABASE_PUBLISHABLE_KEY` (or `SUPABASE_ANON_KEY`) from build environment variables, falling back to local `config.js`. It fails on missing/invalid configuration without printing keys. `dist/` is generated output and is replaced on each build. Tests, SQL, dependency folders and environment files are not published. `npm run vendor` refreshes the checked-in Supabase SDK from the pinned dependency.
+
+## Vercel and authentication settings
+
+`vercel.json` selects the static build command/output and sets no-sniff, anti-framing and no-referrer headers. In Vercel:
+
+1. Import this existing project with the **Other** framework preset.
+2. Set build environment variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to this project's existing public values; apply to the intended deployment environments. Gitignored `config.js` will not be available in a Git deployment.
+3. Build command is `npm run build`; output directory is `dist`. Redeploy after changing configuration. Do not deploy the repository root as static files.
+4. In Supabase Auth URL Configuration, use the production HTTPS origin as Site URL and add exact redirects `https://YOUR_DOMAIN/?auth=callback` and `https://YOUR_DOMAIN/?auth=recovery`. For local use add `http://127.0.0.1:4173/?auth=callback` and `http://127.0.0.1:4173/?auth=recovery`. If using `/index.html`, also allow its callback/recovery equivalents.
+5. Retain the working Email/password and Google provider settings. **Do not enable email confirmation for this requested flow.** Google client secrets belong only in Supabase provider settings. Google's allowed redirect is Supabase's provider callback (`https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`), not the application's callback.
+6. Password reset still requires functioning Supabase recovery email delivery (configure SMTP as appropriate). Retain `{{ .ConfirmationURL }}` in the recovery template. With client-side PKCE, open the recovery link in the same browser/origin that requested it. Invalid/expired links fail closed. The profile password form also supports Supabase's reauthentication nonce when required.
+
+No hosted migration, Vercel deployment, real Google consent or live email-delivery test was performed by the local regression suite. Apply the migration in your project, then verify a new signup, a returning Google login and a real reset email before release.
+
+## Ownership, persistence and security
+
+All four user-owned tables have enabled/forced RLS. Owner policies use `auth.uid()`, and restrictive owner guards prevent accidentally broad permissive policies from widening access. Anonymous financial-table privileges are revoked. Composite `(user_id, workspace_id)` foreign keys enforce workspace ownership; `(user_id, workspace_id, goal_id)` prevents cross-workspace goal links, even between two workspaces of the same user. Goal deletion atomically unlinks only `goal_id`.
+
+The shared repository applies owner/workspace filters to reads, edits and deletes. PostgreSQL enforces ownership, allowed workspace/record types, categories, amounts, currencies and dates; frontend checks are additional validation. Onboarding RPCs are security-invoker, verify the expected authenticated owner, and initialize workspaces idempotently. Workspace type is immutable. There is no privileged frontend API.
+
+The SDK manages persistent auth sessions and token refresh. Local financial state lives only in memory and comes from Supabase. The only app-specific localStorage value is a per-user selected workspace UUID; old demo storage is never loaded. Session changes clear UI/forms/state, and generation checks discard late responses after logout/account/workspace changes. Stable draft UUIDs make uncertain insert retries idempotent; pending forms block duplicate submissions. Failures retain input and display clean errors. Paging handles records beyond the API row limit.
+
+Returning to a visible tab refreshes data when no modal is open. This is cross-device persistence, not continuous realtime collaboration. Concurrent edits to one record use the last successful write. RLS protects against other accounts, not against an authorized owner deliberately changing their own data. Financial records are not an immutable accounting audit log. Complete operator-specific terms/privacy information before public launch.
+
+## Tests and live acceptance
 
 ```sh
 npm test
 ```
 
-Runs the original ledger tests, configuration/auth-adapter tests, unchanged-CSS check, and the **actual SQL migration in PGlite (PostgreSQL)**. Database tests exercise RLS as authenticated A/B and anonymous roles, ownership changes, cross-owner foreign keys, goal unlinking, constraints, RPC isolation, rollback, and rerunning the schema.
+Runs original ledger regressions, record engine/calculation/validation tests, SDK Auth/config tests, repository mapping/pagination/idempotency/scoping tests, original stylesheet preservation, static-server security, SDK bundle integrity, and the real SQL schema/migration in PGlite PostgreSQL. RLS tests use authenticated and anonymous roles, preserve historical data, exercise same-owner cross-workspace foreign keys, safe goal deletion, invalid data and Both onboarding.
 
-For browser regression tests, start a separate local server on 4174:
+For browser tests, start a separate server in one PowerShell terminal:
 
 ```powershell
 $env:PORT = '4174'
 node serve.cjs
 ```
 
-Then, from another terminal:
+Then run `npm run test:browser` in another. The suite uses installed Chrome on Windows; elsewhere install Playwright Chromium. Override with `NECTARSPEND_BROWSER_PATH` or `NECTARSPEND_TEST_URL` if needed. Browser tests use the real SDK with **test-only Auth/PostgREST transport backed by actual PostgreSQL/RLS**. They test signup, PKCE callbacks, recovery, reload persistence, record CRUD, savings allocations, workspace switching, Both onboarding, business summaries, failure/retry, two accounts/contexts, cross-tab logout and mobile/desktop widths. They do not contact your configured Supabase project or verify external providers. Screenshots go to `tests/artifacts/`.
 
-```sh
-npm run test:browser
-```
+After deployment, use two real accounts to verify isolation, create/edit/delete records in personal/business workspaces, reload on another browser, confirm goal deletion keeps records, and test live Google and recovery emails. A hosted SQL Editor uses privileged access; deployed RLS acceptance must use ordinary authenticated app sessions.
 
-The suite uses Chrome on Windows when available; on other systems install Playwright Chromium with `npx playwright install chromium`. Set `FOLD_BROWSER_PATH` to override the browser executable and `FOLD_TEST_URL` to override the app URL. Browser tests load the real bundled Supabase SDK, intercept only the test project's Auth/PostgREST transport, and execute data requests against the real migration/RLS in PostgreSQL. **They do not verify hosted Supabase, Google consent, or actual email delivery.** Test identities/credentials exist only in the test fixture and are never loaded by the app. Screenshots are written to `tests/artifacts/`.
+## Files and future work
 
-### Required live acceptance checks after configuration
+- `js/backend.js`: preserved official Supabase authentication and public config validation.
+- `js/data.js`: workspace-scoped persistence and mappings.
+- `js/records.js`: shared personal/business record validation and calculations.
+- `js/core.js`: existing dates, formatting, number words and compatible pure ledger helpers; test samples moved out of production.
+- `js/app.js`, `css/style.css`, `index.html`: existing responsive paper interface extended for the new product/workspaces.
+- `supabase/schema.sql`: base schema; `supabase/migrations/002_workspaces.sql`: additive upgrade.
+- `scripts/build.cjs`, `vercel.json`: static deployment packaging/configuration; `serve.cjs`: restricted local server.
+- `tests/`: unit, repository, SQL and browser regressions; sample fixtures exist only here.
 
-1. Sign up with a new real email. With confirmation enabled, see “Check your email” and no dashboard. Try an existing email and invalid input; the UI must not claim a new session.
-2. Open the confirmation link in the requesting browser. Complete currency, starting balance, and optional cap; verify empty financial records.
-3. Log out, try an incorrect password, then log in successfully. Refresh; session/data should persist and onboarding should not repeat.
-4. Add spent/saved transactions, link saves to a goal, delete entries/goals, and edit profile/currency/budget. Refresh and verify totals. Deleting a goal must retain its transactions.
-5. In a second device/browser, sign into the same account and verify records/settings. Sign into a different account and verify it is empty and cannot see the first account's records.
-6. Use Google for a new user and returning user; verify consent, redirect, onboarding only for the new user, and cancellation feedback. Account linking for matching emails follows the Supabase project's policy.
-7. Request a password reset, open the link, set a new password, log out, and confirm the new password works and the old one does not. Try an expired link. Test **You → Change password** and the security-code flow too.
-8. Simulate offline/failed requests: no success toast for a failed write, form values remain, retry works, no replacement samples appear. Use two tabs to verify sign-out clears both and a delayed request never restores the signed-out user's UI.
-9. From an authenticated client's API requests, attempt another user's IDs for select/update/delete and goal association. RLS/FK must reject or return no rows. SQL Editor normally runs with privileged owner rights; use the app JWT to test deployed RLS.
-10. Check the unchanged mobile layouts at 320–430px and centered desktop layout, plus absence of browser console errors.
+Customers, money owed, inventory, recurring records, PDF/CSV export, notifications, workspace sharing and currency conversion are intentionally deferred. The workspace foreign keys and shared record module provide extension points without separate apps.
 
-## Project map
-
-`index.html` — existing shell and local script loading. `css/style.css` — unchanged approved styles. `js/core.js` — unchanged ledger utilities. `js/app.js` — existing screen renderers plus authenticated session/controller and server-confirmed event handlers. `js/backend.js` — public configuration validation, official SDK initialization and Auth adapter. `js/data.js` — owner-scoped PostgreSQL repository and mappings. `supabase/schema.sql` — complete initial database migration. `serve.cjs` — restricted local static server. `scripts/vendor.cjs` — reproducible SDK copy.
-
-Implementation references: [Supabase JavaScript](https://supabase.com/docs/reference/javascript/introduction), [Google OAuth](https://supabase.com/docs/guides/auth/social-login/auth-google), [PKCE](https://supabase.com/docs/guides/auth/sessions/pkce-flow), [password recovery](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+References: [Supabase Auth](https://supabase.com/docs/reference/javascript/auth-signup), [PKCE](https://supabase.com/docs/guides/auth/sessions/pkce-flow), [password recovery](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Vercel static configuration](https://vercel.com/docs/project-configuration/vercel-json).

@@ -1,10 +1,13 @@
 /* Official SDK + test Auth transport + real PostgreSQL schema/RLS.
    Live email delivery, Google and hosted Supabase require project credentials. */
-const { chromium } = require(process.env.NECTARSPEND_PLAYWRIGHT || "playwright");
+const { chromium } = require(
+  process.env.NECTARSPEND_PLAYWRIGHT || "playwright",
+);
 const assert = require("node:assert/strict"),
   fs = require("node:fs");
 const { fixture } = require("./supabase-fixture.cjs");
 const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
+fs.mkdirSync("tests/artifacts", { recursive: true });
 (async () => {
   const backend = await fixture();
   const browser = await chromium.launch({
@@ -49,14 +52,19 @@ const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
     await click("[data-action=logout]");
     await page.locator(".welcome").waitFor();
   }
-  async function setup(start='30000',kind='personal',mode=null){
-    await page.locator('#setup-form').waitFor();
-    if(mode){await page.locator('#setup-form select').selectOption(mode);await click('#setup-form .primary');await text('.setup h1','Your everyday currency');}
-    await click('#setup-form .primary');
-    await page.locator('#setup-form input').fill(start);
-    await click('#setup-form .primary');
-    if(kind==='personal')await page.getByRole('button',{name:'Skip for now'}).click();
-    await page.getByRole('button',{name:'Continue to workspace'}).click();
+  async function setup(start = "30000", kind = "personal", mode = null) {
+    await page.locator("#setup-form").waitFor();
+    if (mode) {
+      await page.locator("#setup-form select").selectOption(mode);
+      await click("#setup-form .primary");
+      await text(".setup h1", "Your everyday currency");
+    }
+    await click("#setup-form .primary");
+    await page.locator("#setup-form input").fill(start);
+    await click("#setup-form .primary");
+    if (kind === "personal")
+      await page.getByRole("button", { name: "Skip for now" }).click();
+    await page.getByRole("button", { name: "Continue to workspace" }).click();
   }
   try {
     await page.goto(base);
@@ -150,58 +158,107 @@ const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
     await sheetClosed();
     await text(".profile-card", "<Alice & Co>");
     // Edit an existing record, persist through reload, then restore its amount.
-    await click('nav [data-page=history]');
-    await page.locator('#history-search').fill('Test lunch');
-    await click('.transaction');
-    await click('[data-action=edit-record]');
-    await page.locator('#money-amount').fill('2500');
-    await click('#money-form .primary');await sheetClosed();
-    await click('nav [data-page=home]');await balance('53,000');
-    await page.reload();await balance('53,000');
-    await click('nav [data-page=history]');
-    await page.locator('#history-search').fill('Test lunch');await click('.transaction');await click('[data-action=edit-record]');
-    await page.locator('#money-amount').fill('2000');await click('#money-form .primary');await sheetClosed();
-    await click('nav [data-page=home]');await balance('53,500');
+    await click("nav [data-page=history]");
+    await click("[data-filter=all]");
+    await page.locator("#history-search").fill("Test lunch");
+    await click(".transaction");
+    await click("[data-action=edit-record]");
+    await page.locator("#money-amount").fill("2500");
+    await click("#money-form .primary");
+    await sheetClosed();
+    await click("nav [data-page=home]");
+    await balance("53,000");
+    await page.reload();
+    await balance("53,000");
+    await click("nav [data-page=history]");
+    await page.locator("#history-search").fill("Test lunch");
+    await click(".transaction");
+    await click("[data-action=edit-record]");
+    await page.locator("#money-amount").fill("2000");
+    await click("#money-form .primary");
+    await sheetClosed();
+    await click("nav [data-page=home]");
+    await balance("53,500");
     // A savings allocation changes goal progress but never creates money.
-    await click('nav [data-page=goals]');
-    await page.locator('[data-action=goal-options]').last().click();await click('[data-action=allocate]');
-    await page.locator('#money-amount').fill('500');await page.locator('[name=note]').fill('Allocation only');
-    await click('#money-form .primary');await sheetClosed();
-    await page.reload();await balance('53,500');
-    await click('nav [data-page=history]');await page.locator('#history-search').fill('Allocation only');
-    await click('[data-filter=saving]');assert.equal(await page.locator('.transaction').count(),1);
-    await click('.activity-filters summary');await page.locator('#activity-category').selectOption('Savings');
-    await page.locator('#date-from').fill('2099-01-01');assert.equal(await page.locator('.transaction').count(),0);
-    await page.locator('#date-to').fill('2000-01-01');await text('#history-results','Choose an end date');
-    await click('[data-action=reset-filters]');
+    await click("nav [data-page=goals]");
+    await page.locator("[data-action=goal-options]").last().click();
+    await click("[data-action=allocate]");
+    await page.locator("#money-amount").fill("500");
+    await page.locator("[name=note]").fill("Allocation only");
+    await click("#money-form .primary");
+    await sheetClosed();
+    await page.reload();
+    await balance("53,500");
+    await click("nav [data-page=history]");
+    await page.locator("#history-search").fill("Allocation only");
+    await click("[data-filter=saving]");
+    assert.equal(await page.locator(".transaction").count(), 1);
+    await click(".activity-filters summary");
+    await page.locator("#activity-category").selectOption("Savings");
+    await page.locator("#date-from").fill("2099-01-01");
+    assert.equal(await page.locator(".transaction").count(), 0);
+    await page.locator("#date-to").fill("2000-01-01");
+    await text("#history-results", "Choose an end date");
+    await click("[data-action=reset-filters]");
     // Create a second workspace and verify separate data, navigation and cash/result summaries.
-    await click('[data-action=workspaces]');await click('[data-action=new-workspace]');
-    await page.locator('#workspace-form [name=name]').fill('My Store');await page.locator('#workspace-form [name=kind]').selectOption('business');
-    await click('#workspace-form .primary');await text('.setup h1','Your everyday currency');
-    await setup('1000','business');await balance('1,000');
-    assert.equal(await page.locator('nav [data-page=goals]').count(),0);
-    assert.equal(await page.locator('.transaction').count(),0);
-    async function businessRecord(type,amount,category,note){
-      await page.getByRole('button',{name:'Add record',exact:true}).click();
-      await page.getByRole('button',{name:type,exact:true}).click();
-      assert.equal(await page.locator('#record-savings').count(),0);
-      await page.locator('#money-amount').fill(amount);
-      await page.getByRole('button',{name:category,exact:true}).click();
-      await page.locator('[name=note]').fill(note);await click('#money-form .primary');await sheetClosed();
+    await click("[data-action=workspaces]");
+    await click("[data-action=new-workspace]");
+    await page.locator("#workspace-form [name=name]").fill("My Store");
+    await page.locator("#workspace-form [name=kind]").selectOption("business");
+    await click("#workspace-form .primary");
+    await text(".setup h1", "Your everyday currency");
+    await setup("1000", "business");
+    await balance("1,000");
+    assert.equal(await page.locator("nav [data-page=goals]").count(), 0);
+    assert.equal(await page.locator(".transaction").count(), 0);
+    async function businessRecord(type, amount, category, note) {
+      await page
+        .getByRole("button", { name: "Add record", exact: true })
+        .click();
+      await page.getByRole("button", { name: type, exact: true }).click();
+      assert.equal(await page.locator("#record-savings").count(), 0);
+      await page.locator("#money-amount").fill(amount);
+      await page.getByRole("button", { name: category, exact: true }).click();
+      await page.locator("[name=note]").fill(note);
+      await click("#money-form .primary");
+      await sheetClosed();
     }
-    await businessRecord('Money in','2000','Sales','Store sale');
-    await businessRecord('Money in','500','Loan','Store loan');
-    await businessRecord('Money out','600','Stock','Store stock');
-    await businessRecord('Money out','200','Rent','Store rent');
-    await balance('2,700');await page.reload();await balance('2,700');
-    await click('nav [data-page=records]');await text('#app','Simple operating result');await text('#app','1,800');await text('#app','not accounting profit');
-    await click('[data-period=week]');await text('#app','4 records');
-    await page.screenshot({path:'tests/artifacts/business-summary.png',fullPage:true});
-    for(const width of [320,390,1440]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'business summary overflow');}
-    await click('[data-action=workspaces]');await page.locator('.workspace-list button').filter({hasText:'Personal'}).click();
-    await balance('53,500');assert.ok(!(await page.locator('#app').innerText()).includes('Store sale'));
-    await page.reload();await balance('53,500');
-    await click('nav [data-page=you]');
+    await businessRecord("Money in", "2000", "Sales", "Store sale");
+    await businessRecord("Money in", "500", "Loan", "Store loan");
+    await businessRecord("Money out", "600", "Stock", "Store stock");
+    await businessRecord("Money out", "200", "Rent", "Store rent");
+    await balance("2,700");
+    await page.reload();
+    await balance("2,700");
+    await click("nav [data-page=records]");
+    await text("#app", "Simple operating result");
+    await text("#app", "1,800");
+    await text("#app", "not accounting profit");
+    await click("[data-period=week]");
+    await text("#app", "4 records");
+    await page.screenshot({
+      path: "tests/artifacts/business-summary.png",
+      fullPage: true,
+    });
+    for (const width of [320, 390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        "business summary overflow",
+      );
+    }
+    await click("[data-action=workspaces]");
+    await page
+      .locator(".workspace-list button")
+      .filter({ hasText: "Personal" })
+      .click();
+    await balance("53,500");
+    assert.ok(!(await page.locator("#app").innerText()).includes("Store sale"));
+    await page.reload();
+    await balance("53,500");
+    await click("nav [data-page=you]");
 
     for (const width of [320, 360, 375, 390, 412, 430, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -252,7 +309,10 @@ const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
     assert.equal(await page.locator(".transaction").count(), 0);
     await logout();
     await page
-      .getByRole("button", { name: "Create a NectarSpend account", exact: true })
+      .getByRole("button", {
+        name: "Create a NectarSpend account",
+        exact: true,
+      })
       .click();
     await page.locator("[name=email]").fill("new@example.test");
     await page.locator("[name=password]").fill("fixture-password-123");
@@ -262,15 +322,18 @@ const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
       "text",
     );
     await click("#auth-form [type=submit]");
-    await text('.setup h1','How will you use NectarSpend?');
-    await setup('30000','personal','both');
-    await text('.setup h1','Your everyday currency');
-    await setup('5000','business');
-    await balance('5,000');
-    assert.equal(await page.locator('nav [data-page=records]').count(),1);
-    await click('[data-action=workspaces]');
-    await page.locator('.workspace-list button').filter({hasText:'Personal'}).click();
-    await balance('30,000');
+    await text(".setup h1", "How will you use NectarSpend?");
+    await setup("30000", "personal", "both");
+    await text(".setup h1", "Your everyday currency");
+    await setup("5000", "business");
+    await balance("5,000");
+    assert.equal(await page.locator("nav [data-page=records]").count(), 1);
+    await click("[data-action=workspaces]");
+    await page
+      .locator(".workspace-list button")
+      .filter({ hasText: "Personal" })
+      .click();
+    await balance("30,000");
     await logout();
     await page.getByRole("button", { name: "Log in", exact: true }).click();
     await click("[data-action=google]");
@@ -340,7 +403,12 @@ const base = process.env.NECTARSPEND_TEST_URL || "http://127.0.0.1:4174";
     );
     // Unconfigured production bundle fails closed, with no test transport available.
     const unconfigured = await browser.newContext();
-    await unconfigured.route('**/config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.NECTARSPEND_CONFIG={};'}));
+    await unconfigured.route("**/config.js", (route) =>
+      route.fulfill({
+        contentType: "text/javascript",
+        body: "window.NECTARSPEND_CONFIG={};",
+      }),
+    );
     const plain = await unconfigured.newPage();
     await plain.goto(base);
     await plain.waitForFunction(() =>

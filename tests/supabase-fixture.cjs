@@ -43,11 +43,34 @@ async function fixture() {
   accounts.set("alice@example.test", account(A, "alice@example.test"));
   accounts.set("bob@example.test", account(B, "bob@example.test"));
   await db.query("insert into auth.users values ($1),($2)", [A, B]);
-  await db.query("insert into profiles(user_id,starting_balance,monthly_spend_cap,onboarding_completed) values ($1,45000,25000,true)", [A]);
-  const seed=require('./sample.cjs').sampleData();
-  for(const g of seed.goals)await db.query('insert into goals(id,user_id,name,target) values ($1,$2,$3,$4)',[g.id,A,g.name,g.target]);
-  for(const t of seed.transactions)await db.query('insert into transactions(id,user_id,type,amount,category,note,date,goal_id,created_at) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)',[t.id,A,t.type,t.amount,t.category,t.note,t.date,t.goalId,t.createdAt]);
-  await db.exec(fs.readFileSync('supabase/migrations/002_workspaces.sql','utf8'));
+  await db.query(
+    "insert into profiles(user_id,starting_balance,monthly_spend_cap,onboarding_completed) values ($1,45000,25000,true)",
+    [A],
+  );
+  const seed = require("./sample.cjs").sampleData();
+  for (const g of seed.goals)
+    await db.query(
+      "insert into goals(id,user_id,name,target) values ($1,$2,$3,$4)",
+      [g.id, A, g.name, g.target],
+    );
+  for (const t of seed.transactions)
+    await db.query(
+      "insert into transactions(id,user_id,type,amount,category,note,date,goal_id,created_at) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [
+        t.id,
+        A,
+        t.type,
+        t.amount,
+        t.category,
+        t.note,
+        t.date,
+        t.goalId,
+        t.createdAt,
+      ],
+    );
+  await db.exec(
+    fs.readFileSync("supabase/migrations/002_workspaces.sql", "utf8"),
+  );
   function session(a) {
     const now = Math.floor(Date.now() / 1000),
       encode = (x) => Buffer.from(JSON.stringify(x)).toString("base64url");
@@ -193,12 +216,33 @@ async function fixture() {
           await db.exec(
             `reset role;set role authenticated;set request.jwt.claim.sub='${a.id}';`,
           );
-          if(path.endsWith('/rpc/nectar_initialize_workspaces')){await db.query('select nectar_initialize_workspaces($1,$2)',[body.p_expected_user_id,body.p_mode]);return {rows:null};}
-          if(path.endsWith('/rpc/nectar_complete_workspace')){await db.query('select nectar_complete_workspace($1,$2)',[body.p_expected_user_id,body.p_workspace_id]);return {rows:null};}
+          if (path.endsWith("/rpc/nectar_initialize_workspaces")) {
+            await db.query("select nectar_initialize_workspaces($1,$2)", [
+              body.p_expected_user_id,
+              body.p_mode,
+            ]);
+            return { rows: null };
+          }
+          if (path.endsWith("/rpc/nectar_complete_workspace")) {
+            await db.query("select nectar_complete_workspace($1,$2)", [
+              body.p_expected_user_id,
+              body.p_workspace_id,
+            ]);
+            return { rows: null };
+          }
           const table = path.split("/").at(-1);
-          if (!["profiles", "goals", "transactions", "workspaces"].includes(table))
+          if (
+            !["profiles", "goals", "transactions", "workspaces"].includes(table)
+          )
             throw Error("Unknown table");
-          const allowed = new Set(["workspace_id","record_kind","is_savings","usage_mode","kind","setup_completed","is_legacy_default",
+          const allowed = new Set([
+            "workspace_id",
+            "record_kind",
+            "is_savings",
+            "usage_mode",
+            "kind",
+            "setup_completed",
+            "is_legacy_default",
             "id",
             "user_id",
             "name",

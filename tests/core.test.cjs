@@ -2,14 +2,14 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const C = require("../js/core.js");
 test("sample ledger and both linked savings contribute correctly", () => {
-  const s = require('./sample.cjs').sampleData();
+  const s = require("./sample.cjs").sampleData();
   assert.equal(C.totals(s).balance, 55500);
   assert.equal(C.totals(s).saved, 18000);
   assert.equal(C.totals(s).spent, 7500);
   assert.equal(C.progress(s, s.goals[0].id), 8000);
 });
 test("spent, saved, removal, and goal deletion preserve ledger invariants", () => {
-  const s = require('./sample.cjs').sampleData(),
+  const s = require("./sample.cjs").sampleData(),
     goal = s.goals[0].id;
   s.transactions.push({
     id: "new",
@@ -37,7 +37,7 @@ test("spent, saved, removal, and goal deletion preserve ledger invariants", () =
   assert.equal(C.totals(s).balance, 55500);
 });
 test("monthly sums respect transaction dates across month boundaries", () => {
-  const s = require('./sample.cjs').sampleData();
+  const s = require("./sample.cjs").sampleData();
   s.transactions = [
     { type: "spent", amount: 400, date: "2026-09-30" },
     { type: "spent", amount: 900, date: "2026-10-01" },

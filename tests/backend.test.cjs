@@ -105,7 +105,11 @@ test("original paper stylesheet is preserved beneath workspace extensions", () =
   assert.equal(
     crypto
       .createHash("sha256")
-      .update(fs.readFileSync("css/style.css", "utf8").split("/* Workspace and record controls")[0])
+      .update(
+        fs
+          .readFileSync("css/style.css", "utf8")
+          .split("/* Workspace and record controls")[0],
+      )
       .digest("hex"),
     "30a1f5dc46bea184a9f239f099153af2edb107b4d391d8aacd38299b0db57838",
   );

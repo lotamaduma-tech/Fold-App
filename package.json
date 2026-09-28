@@ -7,7 +7,7 @@
     "build": "node scripts/build.cjs",
     "start": "node serve.cjs",
     "vendor": "node scripts/vendor.cjs",
-    "test": "node --test tests/*.test.cjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.cjs",
     "test:browser": "node tests/browser.cjs"
   },
   "dependencies": {
