@@ -522,7 +522,7 @@
     return `<button class="setting ${extra}" data-action="${action}">${icon(glyph)}<span>${label}</span>${value ? `<span class="setting-value">${escape(value)}</span>` : ""}${icon("chevron-right").replace("aria-hidden", 'class="chevron" aria-hidden')}</button>`;
   }
   function renderProfile() {
-    return `${workspaceControl()}${header("ACCOUNT", "You", avatar())}<div class="card profile-card"><span class="avatar large">${state.profile.name ? escape(state.profile.name[0].toUpperCase()) : icon("user")}</span><div><h2>${escape(state.profile.name || "Your name")}</h2><p class="muted">${escape(state.profile.email)}</p><small>Records saved to your account.</small></div></div><h2 class="settings-title">PERSONAL</h2><div class="settings-group">${setting("Your name", "user", "edit-name", state.profile.name || "Add your name")}</div><h2 class="settings-title">${escape(state.workspace.name.toUpperCase())}</h2><div class="settings-group">${setting("Currency", "globe", "edit-currency", state.profile.currency)}${setting("Starting balance", "notebook", "edit-startingBalance", money(state.profile.startingBalance))}${!business() ? setting("Monthly spending cap", "target", "edit-monthlySpendCap", state.profile.monthlySpendCap ? money(state.profile.monthlySpendCap) : "Not set") : ""}${setting("Workspaces", "layers", "workspaces")}</div><h2 class="settings-title">ACCOUNT</h2><div class="settings-group">${setting("Change password", "lock", "password")}${setting("Log out", "log-out", "logout", "", "danger")}</div><footer class="profile-footer"><div class="display">NectarSpend</div><p>Know your money.</p><p>No money moves through NectarSpend.</p></footer>`;
+    return `${workspaceControl()}${header("ACCOUNT", "You", avatar())}<div class="card profile-card"><span class="avatar large">${state.profile.name ? escape(state.profile.name[0].toUpperCase()) : icon("user")}</span><div><h2>${escape(state.profile.name || "Your name")}</h2><p class="muted">${escape(state.profile.email)}</p><small>Records saved to your account.</small></div></div><h2 class="settings-title">PERSONAL</h2><div class="settings-group">${setting("Your name", "user", "edit-name", state.profile.name || "Add your name")}</div><h2 class="settings-title">${escape(state.workspace.name.toUpperCase())}</h2><div class="settings-group">${setting("Currency", "globe", "edit-currency", state.profile.currency)}${setting("Starting balance", "notebook", "edit-startingBalance", money(state.profile.startingBalance))}${!business() ? setting("Monthly spending cap", "target", "edit-monthlySpendCap", state.profile.monthlySpendCap ? money(state.profile.monthlySpendCap) : "Not set") : ""}${setting("Workspaces", "layers", "workspaces")}</div><h2 class="settings-title">ACCOUNT</h2><div class="settings-group">${setting("Change password", "lock", "password")}${setting("Delete account", "trash-2", "delete-account", "", "danger")}${setting("Log out", "log-out", "logout", "", "danger")}</div><footer class="profile-footer"><div class="display">NectarSpend</div><p>Know your money.</p><p>No money moves through NectarSpend.</p><nav class="legal-links" aria-label="Legal"><a href="/terms.html">Terms of Service</a><a href="/privacy.html">Privacy Policy</a><a href="/disclaimer.html">Financial &amp; Service Disclaimer</a></nav></footer>`;
   }
 
   function renderBalance() {
@@ -560,7 +560,7 @@
   const googleMark =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.24-2.51c-.9.6-2.04.97-3.38.97-2.61 0-4.83-1.76-5.62-4.12H3.04v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.38 13.93a6 6 0 0 1 0-3.86V7.48H3.04a10 10 0 0 0 0 9.04Z"/><path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.82 1.51l2.87-2.87A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.96 5.48l3.34 2.59A5.99 5.99 0 0 1 12 5.95Z"/></svg>';
   function renderAuth(signup) {
-    return `<button class="icon-button auth-back" data-action="nav" data-page="welcome" aria-label="Back to welcome">${icon("arrow-left")}</button>${brand()}<div class="auth-heading"><h1 tabindex="-1">${signup ? "Create your account" : "Welcome back"}</h1><p>${signup ? "Keep your records with you,<br>wherever you use NectarSpend." : "Your records are right<br>where you left them."}</p></div><button class="google" data-action="google">${googleMark} Continue with Google</button><div class="divider">or</div><form id="auth-form" class="auth-form"><label class="field">Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="254"></label><label class="field">Password<span class="password-wrap"><input name="password" type="password" autocomplete="${signup ? "new-password" : "current-password"}" placeholder="••••••••" required minlength="${signup ? 8 : 1}" maxlength="128"><button type="button" data-action="toggle-password" aria-label="Show password">${icon("eye")}</button></span></label>${signup ? "" : '<button type="button" class="forgot" data-action="forgot">Forgot password?</button>'}<p id="auth-error" class="error" role="alert"></p><button class="primary" type="submit">${signup ? "Create account" : "Log in"}</button></form>${signup ? '<p class="auth-legal">By creating an account, you agree to our<br><button class="link" data-action="terms">Terms of Service</button> and <button class="link" data-action="privacy">Privacy Policy</button>.</p>' : ""}<p class="auth-bottom">${signup ? "Already have a NectarSpend account?" : "New to NectarSpend?"} <button class="link" data-action="nav" data-page="${signup ? "login" : "signup"}">${signup ? "Log in" : "Create account"}</button></p>`;
+    return `<button class="icon-button auth-back" data-action="nav" data-page="welcome" aria-label="Back to welcome">${icon("arrow-left")}</button>${brand()}<div class="auth-heading"><h1 tabindex="-1">${signup ? "Create your account" : "Welcome back"}</h1><p>${signup ? "Keep your records with you,<br>wherever you use NectarSpend." : "Your records are right<br>where you left them."}</p></div><button class="google" data-action="google">${googleMark} Continue with Google</button><div class="divider">or</div><form id="auth-form" class="auth-form"><label class="field">Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="254"></label><label class="field">Password<span class="password-wrap"><input name="password" type="password" autocomplete="${signup ? "new-password" : "current-password"}" placeholder="••••••••" required minlength="${signup ? 8 : 1}" maxlength="128"><button type="button" data-action="toggle-password" aria-label="Show password">${icon("eye")}</button></span></label>${signup ? "" : '<button type="button" class="forgot" data-action="forgot">Forgot password?</button>'}<p id="auth-error" class="error" role="alert"></p><button class="primary" type="submit">${signup ? "Create account" : "Log in"}</button></form><p class="auth-legal">NectarSpend is for users aged 18 or older. By creating an account, including through Google, you agree to the <a href="/terms.html">Terms of Service</a> and acknowledge the <a href="/privacy.html">Privacy Policy</a>. Read the <a href="/disclaimer.html">Financial &amp; Service Disclaimer</a>.</p><p class="auth-bottom">${signup ? "Already have a NectarSpend account?" : "New to NectarSpend?"} <button class="link" data-action="nav" data-page="${signup ? "login" : "signup"}">${signup ? "Log in" : "Create account"}</button></p>`;
   }
   const currencyOptions = (value) =>
     C.currencies
@@ -963,16 +963,9 @@
         },
         $("#password-error"),
       );
-    else if (action === "terms")
-      info(
-        "Terms of Service",
-        "NectarSpend is a personal record of the amounts you enter. It does not move money or connect to your bank. The operator must publish final service terms before public launch.",
-      );
-    else if (action === "privacy")
-      info(
-        "Your privacy",
-        "Your account is managed by Supabase Auth. Financial entries and settings are stored in your account’s database records. NectarSpend does not store your password in browser storage. The Supabase client manages your session on this device. Google Fonts loads the interface fonts. The operator must publish their full privacy policy before public launch.",
-      );
+    else if (action === "close-sheet") closeSheet();
+    else if (action === "delete-account")
+      openSheet("Delete your account?", '<p class="sheet-copy">This permanently deletes your account and all Personal and Business workspaces, records and goals from the active database. Keep any copies you need first. Backup and log retention is explained in the <a href="/privacy.html">Privacy Policy</a>.</p><form id="delete-account-form"><label class="field">Type DELETE to confirm<input name="confirmation" required pattern="DELETE" autocomplete="off"></label><p class="error" role="alert"></p><button class="primary danger" type="submit">Permanently delete my account</button><button type="button" class="link" data-action="close-sheet">Cancel</button></form>');
     else if (action === "logout")
       await runPending(button, async () => {
         await requireAuth().signOut();
@@ -1039,7 +1032,20 @@
     runPending(
       button,
       async () => {
-        if (form.id === "money-form") {
+        if (form.id === "delete-account-form") {
+          if (data.get("confirmation") !== "DELETE") throw new Error("Type DELETE to confirm.");
+          const user = await requireAuth().verifiedUser();
+          await requireAuth().deleteAccount();
+          try { localStorage.removeItem("nectarspend-workspace:" + user.id); } catch {}
+          try { await requireAuth().signOut(); } catch { /* Account already removed on server. */ }
+          eraseUser();
+          recovery = false;
+          authStatus = "SIGNED_OUT";
+          closeSheet();
+          page = "welcome";
+          render();
+          showToast("Your account and active records were deleted.");
+        } else if (form.id === "money-form") {
           const raw = String(data.get("amount")).replace(/,/g, "").trim();
           if (!/^\d+(\.\d{1,2})?$/.test(raw))
             throw new Error(

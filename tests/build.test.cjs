@@ -11,7 +11,7 @@ test("static build publishes only browser assets and rejects privileged configur
   try {
     for (const dir of ["scripts", "js", "css", "assets"])
       fs.mkdirSync(path.join(root, dir));
-    for (const file of ["manifest.webmanifest", "sw.js"]) fs.copyFileSync(file, path.join(root, file));
+    for (const file of ["manifest.webmanifest", "sw.js", "privacy.html", "terms.html", "disclaimer.html"]) fs.copyFileSync(file, path.join(root, file));
     fs.copyFileSync("scripts/build.cjs", path.join(root, "scripts/build.cjs"));
     fs.copyFileSync("js/backend.js", path.join(root, "js/backend.js"));
     fs.copyFileSync("js/errors.js", path.join(root, "js/errors.js"));
@@ -46,10 +46,13 @@ test("static build publishes only browser assets and rejects privileged configur
       "assets",
       "config.js",
       "css",
+      "disclaimer.html",
       "index.html",
       "js",
       "manifest.webmanifest",
+      "privacy.html",
       "sw.js",
+      "terms.html",
     ]);
     for (const file of ["manifest.webmanifest", "sw.js", "js/pwa.js", "assets/icon-192.png", "assets/icon-512.png", "assets/nectarspend-social.png"]) assert.ok(fs.existsSync(path.join(root,"dist",file)),file);
     const manifest=JSON.parse(fs.readFileSync(path.join(root,"dist/manifest.webmanifest"),"utf8"));

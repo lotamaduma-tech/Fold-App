@@ -316,3 +316,15 @@ for (const [kind, suffix] of [
       true,
     );
   });
+
+test("account deletion cascades across both workspace types and preserves another user", async () => {
+  await db.exec("reset role");
+  const before = {};
+  for (const table of ["profiles", "workspaces", "transactions", "goals"])
+    before[table] = (await db.query(`select * from ${table} where user_id=$1 order by user_id`, [B])).rows;
+  await db.query("delete from auth.users where id=$1", [A]);
+  for (const table of ["profiles", "workspaces", "transactions", "goals"]) {
+    assert.equal((await db.query(`select * from ${table} where user_id=$1`, [A])).rows.length, 0);
+    assert.deepEqual((await db.query(`select * from ${table} where user_id=$1 order by user_id`, [B])).rows, before[table]);
+  }
+});

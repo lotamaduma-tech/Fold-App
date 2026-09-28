@@ -133,6 +133,11 @@
       reauthenticate() {
         return checked(client.auth.reauthenticate());
       },
+      async deleteAccount() {
+        const result = await client.functions.invoke("delete-account", { body: { confirmation: "DELETE" } });
+        if (result.error || result.data?.deleted !== true)
+          throw new Error("Account deletion was not confirmed. Try again or see the Privacy Policy for help.");
+      },
       signOut() {
         return checked(client.auth.signOut({ scope: "local" }));
       },

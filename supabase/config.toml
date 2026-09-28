@@ -1,0 +1,4 @@
+[functions.delete-account]
+# The handler validates the bearer token with Auth getUser before any deletion.
+# This also supports projects using newer asymmetric JWT signing keys.
+verify_jwt = false

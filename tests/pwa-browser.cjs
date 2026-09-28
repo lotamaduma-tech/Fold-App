@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
  try {
  const context=await browser.newContext({viewport:{width:390,height:844}});
  const page=await context.newPage();
- await page.goto('http://127.0.0.1:4174/');
+ await page.goto(process.env.NECTARSPEND_TEST_URL || 'http://127.0.0.1:4174/');
  await page.evaluate(async()=>{await navigator.serviceWorker.ready});
  assert.equal(await page.locator('#install-banner').isVisible(),false);
  const available=()=>page.evaluate(()=>{const e=new Event('beforeinstallprompt',{cancelable:true});e.prompt=async()=>{window.promptCalls=(window.promptCalls||0)+1};e.userChoice=Promise.resolve({outcome:'accepted'});window.dispatchEvent(e)});
@@ -18,7 +18,7 @@ const assert=require('node:assert/strict');
  assert.equal(await page.locator('#install-banner').isVisible(),false);
  await available();await page.click('#dismiss-install');await available();assert.equal(await page.locator('#install-banner').isVisible(),false);
  await page.reload();await available();assert.equal(await page.locator('#install-banner').isVisible(),false);
- const keys=await page.evaluate(async()=>{const c=await caches.open('nectarspend-shell-v1');return (await c.keys()).map(r=>r.url)});
+ const keys=await page.evaluate(async()=>{const c=await caches.open('nectarspend-shell-v2');return (await c.keys()).map(r=>r.url)});
  assert.ok(keys.length>=17);assert.ok(keys.every(u=>!u.includes('?')&&!u.includes('config.js')&&!u.includes('/auth/')&&!u.includes('/rest/')));
  await context.setOffline(true);await page.reload();assert.equal(await page.title(),'NectarSpend — Know your money.');
  assert.equal(await page.locator('#install-banner').count(),1);

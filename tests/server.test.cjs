@@ -18,6 +18,10 @@ test("local server serves the app, denies development files, sends security head
     for (const resource of [
       "/",
       "/config.js",
+      "/terms.html",
+      "/privacy.html",
+      "/disclaimer.html",
+      "/css/legal.css",
       "/js/backend.js",
       "/assets/supabase.js",
     ]) {
@@ -32,6 +36,7 @@ test("local server serves the app, denies development files, sends security head
       "/node_modules/@supabase/supabase-js/package.json",
       "/tests/supabase-fixture.cjs",
       "/supabase/schema.sql",
+      "/supabase/functions/delete-account/index.ts",
     ])
       assert.equal(
         (await fetch(`http://127.0.0.1:${port}${resource}`)).status,

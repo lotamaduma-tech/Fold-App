@@ -19,7 +19,7 @@ http
       "." + (pathname === "/" ? "/index.html" : pathname),
     );
     const allowed =
-      /^(?:\/|\/index\.html|\/config\.js|\/sw\.js|\/manifest\.webmanifest|\/(?:css|js|assets)\/[a-zA-Z0-9_.-]+)$/;
+      /^(?:\/|\/(?:index|privacy|terms|disclaimer)\.html|\/config\.js|\/sw\.js|\/manifest\.webmanifest|\/(?:css|js|assets)\/[a-zA-Z0-9_.-]+)$/;
     if (!allowed.test(pathname) || !["GET", "HEAD"].includes(req.method)) {
       res.writeHead(404);
       res.end("Not found");

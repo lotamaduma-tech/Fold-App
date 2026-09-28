@@ -1159,3 +1159,9 @@ legend {
 .install-banner p { color: var(--muted-fg); font-size: 14px; }
 .install-actions { grid-column: 1 / -1; display: flex; gap: 12px; }
 .install-actions .primary { width: auto; margin: 0; padding: 8px 24px; }
+
+.legal-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; font-size: 15px; }
+.legal-links a { color: var(--ink); padding: 10px 0; }
+.site-legal { max-width: 720px; margin: 16px auto; padding: 16px 24px calc(110px + env(safe-area-inset-bottom)); }
+.auth-legal a { color: var(--ink); text-decoration: underline; }
+.auth-legal { font-size: 15px; color: var(--ink); line-height: 1.5; }

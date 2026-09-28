@@ -1,0 +1,11 @@
+.legal-header, .legal-document, .legal-footer { max-width: 760px; margin: 0 auto; padding: 24px; }
+.legal-document { font-size: 17px; line-height: 1.65; overflow-wrap: anywhere; }
+.legal-document h1 { font-size: clamp(32px, 7vw, 48px); line-height: 1.15; }
+.legal-document h2 { font-size: 25px; margin: 32px 0 12px; }
+.legal-document p, .legal-document ul { margin: 16px 0; }
+.legal-document li { margin-bottom: 12px; }
+.legal-status { padding: 16px; background: var(--muted); border-radius: 12px; }
+.legal-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; }
+.legal-footer a, .legal-header a { display: inline-block; padding: 10px 0; }
+.skip-link { position: absolute; left: 16px; top: -100px; background: var(--card); padding: 12px; }
+.skip-link:focus { top: 12px; }
