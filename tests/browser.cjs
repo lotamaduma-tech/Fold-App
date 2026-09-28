@@ -96,7 +96,7 @@ fs.mkdirSync("tests/artifacts", { recursive: true });
     await page.locator("[name=note]").fill("Test lunch");
     backend.failNextWrite();
     await click("#money-form .primary");
-    await text("#money-error", "complete this request");
+    await text("#money-error", "temporarily unavailable");
     assert.equal(await page.locator("#money-amount").inputValue(), "2000");
     await balance("55,500");
     backend.delayNextWrite(400);
@@ -264,6 +264,15 @@ fs.mkdirSync("tests/artifacts", { recursive: true });
       await page.setViewportSize({ width, height: 900 });
       for (const tab of ["home", "history", "goals", "you"]) {
         await click(`nav [data-page=${tab}]`);
+        if (tab === "home")
+          assert.ok(
+            await page
+              .locator(".summary .display")
+              .evaluateAll((nodes) =>
+                nodes.every((node) => node.scrollWidth <= node.clientWidth + 1),
+              ),
+            `summary amount overflow at ${width}`,
+          );
         assert.ok(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth,
@@ -282,6 +291,14 @@ fs.mkdirSync("tests/artifacts", { recursive: true });
     await page.screenshot({ path: "tests/artifacts/add-money.png" });
     await page.keyboard.press("Escape");
     await sheetClosed();
+    backend.failSchemaLoad();
+    await page.reload();
+    await text(".error", "database needs an update");
+    assert.equal(await page.locator(".balance-card").count(), 0);
+    assert.ok(!(await page.locator("body").innerText()).includes("PRIVATE"));
+    backend.restoreNetwork();
+    await click("[data-action=retry]");
+    await balance("53,500");
     backend.failNextLoad();
     await page.reload();
     await page.getByRole("button", { name: "Try again" }).waitFor();
@@ -425,9 +442,48 @@ fs.mkdirSync("tests/artifacts", { recursive: true });
     );
     assert.equal(await expiredPage.locator("#password-form").count(), 0);
     await expired.close();
+    // Actual app/SDK flows on every required origin, using local assets and
+    // fixture Auth transport. These do not visit the deployed production sites.
+    for (const origin of [
+      "http://127.0.0.1:5500",
+      "http://localhost:5500",
+      "https://nectarspend.vercel.app",
+      "https://nectarspend.com",
+      "https://www.nectarspend.com",
+    ]) {
+      const site = await browser.newContext();
+      await site.route(origin + "/**", async (route) => {
+        const url = new URL(route.request().url());
+        const response = await fetch(base + url.pathname + url.search);
+        await route.fulfill({
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+          body: Buffer.from(await response.arrayBuffer()),
+        });
+      });
+      await backend.install(site);
+      const tab = await site.newPage();
+      tab.on("pageerror", (error) => errors.push(error.message));
+      await tab.goto(origin + "/");
+      await tab.getByRole("button", { name: "Log in", exact: true }).click();
+      await tab.locator("[data-action=google]").click();
+      await tab.waitForURL("**/auth/v1/authorize?**");
+      assert.equal(
+        new URL(tab.url()).searchParams.get("redirect_to"),
+        origin + "/?auth=callback",
+      );
+      await tab.goto(origin + "/?auth=callback&code=oauth-code");
+      await tab.locator(".balance-card").waitFor();
+      assert.equal(new URL(tab.url()).origin, origin);
+      assert.equal(new URL(tab.url()).search, "");
+      await tab.reload();
+      await tab.locator(".balance-card").waitFor();
+      assert.equal(await tab.locator(".transaction").count(), 0);
+      await site.close();
+    }
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: official SDK auth/data flows with test transport; PostgreSQL persistence, UI regression, 7 widths, failure/retry, direct signup, Both onboarding, PKCE, recovery, two accounts and two browser contexts. No page errors.",
+      "PASS: official SDK + PostgreSQL/RLS browser suite; record CRUD, savings/goals, workspace isolation, business summaries, 7 widths, schema/network failure recovery, direct signup, Both onboarding, PKCE/recovery, 2 accounts, cross-tab logout, and all 5 required origins. No page errors.",
     );
   } catch (error) {
     console.error(

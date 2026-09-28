@@ -214,3 +214,94 @@ test("an unowned preferred workspace never becomes the active workspace", async 
     wid,
   );
 });
+
+for (const race of [false, true])
+  test(`profile creation and repeat loading remain safe${race ? " during an insert race" : ""}`, async () => {
+    let exists = false,
+      posts = 0;
+    const sdk = client(async (url, options) => {
+      url = new URL(url);
+      if (url.pathname.endsWith("/profiles")) {
+        if (options.method === "POST") {
+          posts++;
+          exists = true;
+          return race
+            ? respond({ code: "23505", message: "duplicate" }, 409)
+            : respond(profile);
+        }
+        return respond(exists ? profile : []);
+      }
+      assert.ok(url.pathname.endsWith("/workspaces"));
+      return respond([]);
+    });
+    const repo = createRepository(sdk, uid),
+      user = { id: uid, email: "new@example.test" };
+    const first = await repo.load(user);
+    assert.equal(first.setupComplete, false);
+    assert.equal(first.workspaces.length, 0);
+    await repo.load(user);
+    assert.equal(posts, 1);
+  });
+test("schema HTTP 400 and malformed database responses fail clearly without pretending to load", async () => {
+  const broken = client(async () =>
+    respond(
+      {
+        code: "42703",
+        message: "column profiles.usage_mode does not exist",
+        details: "PRIVATE",
+      },
+      400,
+    ),
+  );
+  await assert.rejects(
+    createRepository(broken, uid).load({ id: uid }),
+    (e) =>
+      e.kind === "schema" &&
+      e.code === "42703" &&
+      e.operation === "profiles.load" &&
+      e.status === 400 &&
+      !e.message.includes("connection"),
+  );
+  const malformed = client(async (url) =>
+    respond(
+      new URL(url).pathname.endsWith("/profiles")
+        ? profile
+        : { unexpected: "not rows" },
+    ),
+  );
+  await assert.rejects(
+    createRepository(malformed, uid).load({ id: uid }),
+    (e) => e.kind === "response",
+  );
+});
+test("invalid workspace settings, goals and record amounts are rejected before an API request", async () => {
+  let calls = 0;
+  const repo = createRepository(
+    client(async () => {
+      calls++;
+      throw new Error("Must not call");
+    }),
+    uid,
+  );
+  await assert.rejects(repo.updateWorkspace(wid, { startingBalance: NaN }));
+  await assert.rejects(repo.updateWorkspace(wid, { currency: "XYZ" }));
+  assert.throws(() =>
+    repo.createGoal({ id: "g", name: "Goal", target: Infinity }, wid),
+  );
+  assert.throws(() =>
+    repo.createWorkspace({
+      id: wid,
+      name: "Store",
+      kind: "invalid",
+      currency: "NGN",
+    }),
+  );
+  assert.throws(() =>
+    repo.createTransaction(
+      { kind: "expense", amount: -1, category: "Food", date: "2026-09-27" },
+      wid,
+      "personal",
+    ),
+  );
+  assert.equal(calls, 0);
+});

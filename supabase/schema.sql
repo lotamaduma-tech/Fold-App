@@ -42,17 +42,17 @@ create index if not exists fold_transactions_user_date on public.transactions(us
 create index if not exists fold_transactions_goal on public.transactions(user_id,goal_id) where goal_id is not null;
 create index if not exists fold_goals_user_created on public.goals(user_id,created_at);
 
-create or replace function public.fold_updated_at() returns trigger
+create or replace function public.set_updated_at() returns trigger
 language plpgsql set search_path = '' as $$
 begin new.updated_at=now(); return new; end;
 $$;
-revoke all on function public.fold_updated_at() from public;
+revoke all on function public.set_updated_at() from public;
 drop trigger if exists fold_profile_updated on public.profiles;
-create trigger fold_profile_updated before update on public.profiles for each row execute function public.fold_updated_at();
+create trigger fold_profile_updated before update on public.profiles for each row execute function public.set_updated_at();
 drop trigger if exists fold_goal_updated on public.goals;
-create trigger fold_goal_updated before update on public.goals for each row execute function public.fold_updated_at();
+create trigger fold_goal_updated before update on public.goals for each row execute function public.set_updated_at();
 drop trigger if exists fold_transaction_updated on public.transactions;
-create trigger fold_transaction_updated before update on public.transactions for each row execute function public.fold_updated_at();
+create trigger fold_transaction_updated before update on public.transactions for each row execute function public.set_updated_at();
 
 alter table public.profiles enable row level security;
 alter table public.goals enable row level security;

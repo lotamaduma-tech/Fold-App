@@ -2,6 +2,14 @@
 -- Apply AFTER schema.sql on a new project; apply ONLY this file on an existing project.
 begin;
 
+-- Older installations used a differently named helper. Define the canonical
+-- helper here as well so existing projects can apply this migration alone.
+create or replace function public.set_updated_at()
+returns trigger language plpgsql set search_path = '' as $$
+begin new.updated_at = now(); return new; end;
+$$;
+revoke all on function public.set_updated_at() from public;
+
 create table if not exists public.workspaces (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references public.profiles(user_id) on delete cascade,
@@ -563,4 +571,5 @@ drop function if exists public.fold_replace_notebook(
     date
 );
 
+notify pgrst, 'reload schema';
 commit;

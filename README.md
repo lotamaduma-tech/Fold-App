@@ -4,6 +4,8 @@
 
 A mobile-first personal and small-business record keeper, built on the existing HTML/CSS/vanilla JavaScript application. Users manually record activity that happened elsewhere. NectarSpend does not hold or move money.
 
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the confirmed HTTP 400 diagnosis, exact Supabase/Google/Vercel settings, and manual migration steps.
+
 ## Upgrade the existing Supabase project
 
 Your existing public configuration and Supabase authentication are preserved. **Keep email confirmation disabled**, as configured: signup with a session goes directly to onboarding. Google, persistent sessions, logout and password recovery still use the official Supabase SDK.
@@ -59,7 +61,7 @@ Creates `dist/` containing only `index.html`, browser scripts/styles/assets and 
 1. Import this existing project with the **Other** framework preset.
 2. Set build environment variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to this project's existing public values; apply to the intended deployment environments. Gitignored `config.js` will not be available in a Git deployment.
 3. Build command is `npm run build`; output directory is `dist`. Redeploy after changing configuration. Do not deploy the repository root as static files.
-4. In Supabase Auth URL Configuration, use the production HTTPS origin as Site URL and add exact redirects `https://YOUR_DOMAIN/?auth=callback` and `https://YOUR_DOMAIN/?auth=recovery`. For local use add `http://127.0.0.1:4173/?auth=callback` and `http://127.0.0.1:4173/?auth=recovery`. If using `/index.html`, also allow its callback/recovery equivalents.
+4. Use the exact environment settings in [DEPLOYMENT.md](DEPLOYMENT.md). In Supabase Auth URL Configuration, use the production HTTPS origin as Site URL and add exact redirects `https://YOUR_DOMAIN/?auth=callback` and `https://YOUR_DOMAIN/?auth=recovery`. For local use add `http://127.0.0.1:4173/?auth=callback` and `http://127.0.0.1:4173/?auth=recovery`. If using `/index.html`, also allow its callback/recovery equivalents.
 5. Retain the working Email/password and Google provider settings. **Do not enable email confirmation for this requested flow.** Google client secrets belong only in Supabase provider settings. Google's allowed redirect is Supabase's provider callback (`https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`), not the application's callback.
 6. Password reset still requires functioning Supabase recovery email delivery (configure SMTP as appropriate). Retain `{{ .ConfirmationURL }}` in the recovery template. With client-side PKCE, open the recovery link in the same browser/origin that requested it. Invalid/expired links fail closed. The profile password form also supports Supabase's reauthentication nonce when required.
 

@@ -86,9 +86,11 @@
   let recovery =
     new URLSearchParams(location.search).get("auth") === "recovery";
   function errorMessage(error) {
+    NectarErrors.diagnose(error);
     const messages = {
       invalid_credentials: "Email or password is incorrect.",
-      email_not_confirmed: "Confirm your email before logging in.",
+      email_not_confirmed:
+        "Sign-in is unavailable for this account. Contact the app owner.",
       user_already_exists:
         "An account may already exist. Try logging in or resetting your password.",
       over_email_send_rate_limit:
@@ -104,6 +106,7 @@
       42501: "Your session cannot access this record. Reload and try again.",
     };
     if (messages[error?.code]) return messages[error.code];
+    if (error?.name === "NectarServiceError") return error.message;
     if (
       error?.name === "AbortError" ||
       error?.name === "TimeoutError" ||
@@ -475,7 +478,7 @@
             ? "Good afternoon"
             : "Good evening",
       goal = state.goals.find((g) => C.progress(state, g.id) < g.target);
-    return `${workspaceControl()}${header("NectarSpend", greeting + (state.profile.name ? ", " + state.profile.name : ""), avatar())}<button class="card balance-card" data-action="nav" data-page="balance"><span class="row"><span class="kicker">${business() ? "RECORDED CASH BALANCE" : "CALCULATED BALANCE"}</span><span class="inline muted">Details ${icon("chevron-right")}</span></span><div class="display money">${money(t.balance)}</div><small>Based on your records. No money is held here.</small></button><section class="summary" aria-label="This month"><article class="saved"><p class="kicker">Money in</p><p class="display money">${money(t.monthIncome)}</p><small>This month</small></article><article class="spent"><p class="kicker">Money out</p><p class="display money">${money(t.monthSpent)}</p><small>This month</small></article></section>${business() ? "" : `<div class="savings-line row"><span>Recorded savings <small>(all time)</small></span><span class="saved money">${money(t.saved)}</span></div>`}${!business() && state.profile.monthlySpendCap > 0 ? `<section class="cap"><div class="row"><span class="muted">Monthly spending cap</span><span>${money(t.monthSpent)} <span class="muted">/ ${money(state.profile.monthlySpendCap)}</span></span></div>${bar(t.monthSpent, state.profile.monthlySpendCap, t.monthSpent / state.profile.monthlySpendCap >= 0.8 ? "over" : "")}<small>${t.monthSpent > state.profile.monthlySpendCap ? "Above your recorded spending limit" : "Within your recorded spending limit"}</small></section>` : ""}<div class="section-title row"><h2>Recent records</h2><button class="text-button" data-action="nav" data-page="history">View all</button></div>${state.transactions.length ? renderTransactions(sortedTransactions().slice(0, 5)) : '<div class="empty"><p>No records yet. Use the plus button to record money in or money out.</p></div>'}<button class="setting summary-link" data-action="nav" data-page="records">${icon("chart-no-axes-column")} Weekly & monthly summaries ${icon("chevron-right")}</button>${!business() && goal ? `<div class="section-title row"><h2>Savings goals</h2><button class="text-button" data-action="nav" data-page="goals">See all</button></div>${goalCard(goal, false)}` : ""}`;
+    return `${workspaceControl()}${header("NectarSpend", greeting + (state.profile.name ? ", " + state.profile.name : ""), avatar())}<button class="card balance-card" data-action="nav" data-page="balance"><span class="row"><span class="kicker">${business() ? "RECORDED CASH BALANCE" : "CALCULATED BALANCE"}</span><span class="inline muted">Details ${icon("chevron-right")}</span></span><div class="display money">${money(t.balance)}</div><small>Based on your records. No money is held here.</small></button><section class="summary" aria-label="This month"><article class="saved"><p class="kicker">Money in</p><p class="display money" style="--digits:${money(t.monthIncome).length}">${money(t.monthIncome)}</p><small>This month</small></article><article class="spent"><p class="kicker">Money out</p><p class="display money" style="--digits:${money(t.monthSpent).length}">${money(t.monthSpent)}</p><small>This month</small></article></section>${business() ? "" : `<div class="savings-line row"><span>Recorded savings <small>(all time)</small></span><span class="saved money">${money(t.saved)}</span></div>`}${!business() && state.profile.monthlySpendCap > 0 ? `<section class="cap"><div class="row"><span class="muted">Monthly spending cap</span><span>${money(t.monthSpent)} <span class="muted">/ ${money(state.profile.monthlySpendCap)}</span></span></div>${bar(t.monthSpent, state.profile.monthlySpendCap, t.monthSpent / state.profile.monthlySpendCap >= 0.8 ? "over" : "")}<small>${t.monthSpent > state.profile.monthlySpendCap ? "Above your recorded spending limit" : "Within your recorded spending limit"}</small></section>` : ""}<div class="section-title row"><h2>Recent records</h2><button class="text-button" data-action="nav" data-page="history">View all</button></div>${state.transactions.length ? renderTransactions(sortedTransactions().slice(0, 5)) : '<div class="empty"><p>No records yet. Use the plus button to record money in or money out.</p></div>'}<button class="setting summary-link" data-action="nav" data-page="records">${icon("chart-no-axes-column")} Weekly & monthly summaries ${icon("chevron-right")}</button>${!business() && goal ? `<div class="section-title row"><h2>Savings goals</h2><button class="text-button" data-action="nav" data-page="goals">See all</button></div>${goalCard(goal, false)}` : ""}`;
   }
 
   function historyResults() {
@@ -735,7 +738,7 @@
       )
       .join(
         "",
-      )}</div><label class="field">A date in the period<input id="summary-date" type="date" value="${summaryDate}"></label><p class="muted">${escape(s.from)} — ${escape(s.to)} · ${s.count} record${s.count === 1 ? "" : "s"}</p>${!s.count ? '<div class="empty"><h2>No records in this period</h2><p>Your summaries will appear as you record activity.</p></div>' : `<div class="card ledger">${[["Recorded money in", s.income, "saved"], ["Recorded money out", s.expenses, "spent"], ["Difference", s.difference, s.difference < 0 ? "spent" : "saved"], ...(!business() ? [["Recorded savings", s.saved, "saved"]] : [])].map(([label, value, cls]) => `<div class="row"><span>${label}</span><span class="money ${cls}">${label === "Difference" ? signed(value) : money(value)}</span></div>`).join("")}</div>${business() ? `<div class="card ledger"><div class="row"><span>Recorded sales revenue</span><span>${money(s.revenue)}</span></div><div class="row"><span>Operating costs</span><span>${money(s.operatingCosts)}</span></div><div class="row"><span>Simple operating result</span><span class="${s.operatingResult < 0 ? "spent" : "saved"}">${signed(s.operatingResult)}</span></div></div><p class="muted summary-note">Revenue less recorded operating costs, not accounting profit. Excludes stock purchases (${money(s.stock)}), owner funding/draws, loans, tax and unrecorded costs. Money in/out above includes every cash record.</p>` : ""}<div class="section-title"><h2>Expense categories</h2></div>${s.categories.length ? `<p class="muted">Largest: ${escape(s.categories[0].name)}</p>` : '<p class="muted">No expenses in this period.</p>'}${s.categories.map((c) => `<div class="bar-row spent"><div class="row"><span>${escape(c.name)}</span><span>${money(c.amount)}</span></div>${bar(c.amount, s.expenses)}</div>`).join("")}`}`;
+      )}</div><label class="field">A date in the period<input id="summary-date" type="date" value="${summaryDate}"></label><p class="muted">${escape(s.from)} — ${escape(s.to)} · ${s.count} record${s.count === 1 ? "" : "s"}</p>${!s.count ? '<div class="empty"><h2>No records in this period</h2><p>Your summaries will appear as you record activity.</p></div>' : `<div class="card ledger">${[["Recorded money in", s.income, "saved"], ["Recorded money out", s.expenses, "spent"], ["Difference", s.difference, s.difference < 0 ? "spent" : "saved"], ...(!business() ? [["Recorded savings", s.saved, "saved"]] : [])].map(([label, value, cls]) => `<div class="row"><span>${label}</span><span class="money ${cls}">${label === "Difference" ? signed(value) : money(value)}</span></div>`).join("")}</div>${business() ? `<div class="card ledger"><div class="row"><span>Recorded sales revenue</span><span>${money(s.revenue)}</span></div><div class="row"><span>Operating costs</span><span>${money(s.operatingCosts)}</span></div><div class="row"><span>Simple operating result</span><span class="${s.operatingResult < 0 ? "spent" : "saved"}">${signed(s.operatingResult)}</span></div></div><p class="muted summary-note">Revenue less recorded operating costs, not accounting profit. Excludes stock purchases (${money(s.stock)}), owner funding/draws and loans. No inventory costing, tax calculation or adjustment for unrecorded costs. Money in/out above includes every cash record.</p>` : ""}<div class="section-title"><h2>Expense categories</h2></div>${s.categories.length ? `<p class="muted">Largest: ${escape(s.categories[0].name)}</p>` : '<p class="muted">No expenses in this period.</p>'}${s.categories.map((c) => `<div class="bar-row spent"><div class="row"><span>${escape(c.name)}</span><span>${money(c.amount)}</span></div>${bar(c.amount, s.expenses)}</div>`).join("")}`}`;
   }
 
   function openWorkspaces() {
@@ -1144,9 +1147,8 @@
               ));
           form.querySelector("[name=password]").value = "";
           if (signup && !result.session)
-            info(
-              "Check your email",
-              "If this address can be registered, a confirmation link is on its way. Open it in this browser, then return to NectarSpend. If you already have an account, log in or reset your password.",
+            throw new Error(
+              "Signup did not return a session. Try logging in, or ask the app owner to check signup settings.",
             );
           else if (result.session) await activateSession(result.session);
           else throw new Error("No session was created. Please log in again.");

@@ -1132,3 +1132,7 @@ legend {
 .check-field input{width:20px;height:20px;accent-color:var(--gain)}.summary-note{font-size:13px;line-height:1.5;margin:12px 0}
 .profile-card>div{min-width:0;overflow-wrap:anywhere}.page-header>div{min-width:0;overflow-wrap:anywhere}
 .ledger .row>span:last-child{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}
+
+/* Fit currency labels without splitting a money figure across lines. */
+.summary article{container-type:inline-size;min-width:0}
+.summary .display{white-space:nowrap;font-size:clamp(12px,calc(150cqw / var(--digits,8)),30px)}

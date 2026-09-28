@@ -10,6 +10,7 @@ async function fixture() {
     accounts = new Map(),
     calls = [];
   let failWrite = false,
+    schemaFailure = false,
     failLoad = false,
     delayWrite = 0,
     queue = Promise.resolve();
@@ -202,6 +203,16 @@ async function fixture() {
         );
       if (method === "GET" && failLoad)
         return json(route, { message: "Could not load. Try again." }, 503);
+      if (method === "GET" && schemaFailure)
+        return json(
+          route,
+          {
+            code: "42703",
+            message: "column profiles.usage_mode does not exist",
+            details: "PRIVATE provider details",
+          },
+          400,
+        );
       if (method !== "GET" && failWrite) {
         failWrite = false;
         return json(route, { message: "Could not save. Try again." }, 503);
@@ -268,10 +279,23 @@ async function fixture() {
           for (const [k, v] of url.searchParams)
             if (allowed.has(k) && v.startsWith("eq."))
               conditions.push('"' + k + '"=' + param(v.slice(3)));
+          const selected = url.searchParams.get("select");
+          const projection = selected
+            ? selected
+                .split(",")
+                .map((column) => {
+                  if (!allowed.has(column))
+                    throw Object.assign(new Error("Unknown selected column"), {
+                      code: "42703",
+                    });
+                  return '"' + column + '"';
+                })
+                .join(",")
+            : "*";
           let sql;
           if (method === "GET") {
             sql =
-              `select * from ${table}` +
+              `select ${projection} from ${table}` +
               (conditions.length ? " where " + conditions.join(" and ") : "");
             if (url.searchParams.get("order")) sql += " order by created_at,id";
             sql += ` limit ${Number(url.searchParams.get("limit") || 1000)} offset ${Number(url.searchParams.get("offset") || 0)}`;
@@ -279,12 +303,12 @@ async function fixture() {
             const cols = Object.keys(body);
             if (cols.some((k) => !allowed.has(k)))
               throw Error("Unknown column");
-            sql = `insert into ${table} (${cols.map((k) => '"' + k + '"').join(",")}) values (${cols.map((k) => param(body[k])).join(",")}) returning *`;
+            sql = `insert into ${table} (${cols.map((k) => '"' + k + '"').join(",")}) values (${cols.map((k) => param(body[k])).join(",")}) returning ${projection}`;
           } else if (method === "PATCH") {
             const cols = Object.keys(body);
             if (cols.some((k) => !allowed.has(k)))
               throw Error("Unknown column");
-            sql = `update ${table} set ${cols.map((k) => '"' + k + '"=' + param(body[k])).join(",")} where ${conditions.join(" and ")} returning *`;
+            sql = `update ${table} set ${cols.map((k) => '"' + k + '"=' + param(body[k])).join(",")} where ${conditions.join(" and ")} returning ${projection}`;
           } else if (method === "DELETE")
             sql = `delete from ${table} where ${conditions.join(" and ")} returning *`;
           else throw Error("Unsupported method");
@@ -332,8 +356,12 @@ async function fixture() {
     failNextLoad() {
       failLoad = true;
     },
+    failSchemaLoad() {
+      schemaFailure = true;
+    },
     restoreNetwork() {
       failLoad = false;
+      schemaFailure = false;
     },
     delayNextWrite(ms) {
       delayWrite = ms;

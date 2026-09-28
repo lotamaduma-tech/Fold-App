@@ -23,6 +23,18 @@ before(async () => {
   );
   await db.exec(base);
   await db.exec(base);
+  assert.ok(
+    (await db.query("select to_regprocedure('public.set_updated_at()') helper"))
+      .rows[0].helper,
+  );
+  // Reproduce the deployed pre-upgrade schema and older helper name.
+  await assert.rejects(
+    db.query("select usage_mode from profiles limit 0"),
+    (error) => error.code === "42703",
+  );
+  await db.exec(
+    "alter function public.set_updated_at() rename to fold_updated_at",
+  );
   await db.query(
     "insert into profiles(user_id,starting_balance,monthly_spend_cap,onboarding_completed) values ($1,45000,25000,true),($2,0,0,true)",
     [A, B],
@@ -259,3 +271,48 @@ test("anonymous users cannot read financial tables or call onboarding RPCs", asy
     /permission denied/,
   );
 });
+
+test("every repository projection matches the authoritative migrated SQL columns", async () => {
+  await as(A);
+  for (const [table, projection] of Object.entries(
+    require("../js/data.js").columns,
+  ))
+    await db.query(
+      `select ${projection} from ${table} where user_id=$1 limit 0`,
+      [A],
+    );
+});
+test("workspace updated_at trigger uses the canonical helper on upgraded legacy installations", async () => {
+  await db.exec("reset role");
+  const { rows } = await db.query(
+    "select p.proname from pg_trigger t join pg_proc p on p.oid=t.tgfoid where t.tgname='nectar_workspace_updated'",
+  );
+  assert.equal(rows[0].proname, "set_updated_at");
+});
+for (const [kind, suffix] of [
+  ["personal", "4"],
+  ["business", "5"],
+])
+  test(`${kind}-only initialization is repeatable without duplicate workspaces or sample records`, async () => {
+    const owner = "00000000-0000-4000-8000-00000000000" + suffix;
+    await db.exec("reset role");
+    await db.query("insert into auth.users values ($1)", [owner]);
+    await as(owner);
+    await db.query("insert into profiles(user_id) values ($1)", [owner]);
+    await db.query("select nectar_initialize_workspaces($1,$2)", [owner, kind]);
+    await db.query("select nectar_initialize_workspaces($1,$2)", [owner, kind]);
+    const { rows } = await db.query("select * from workspaces");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].kind, kind);
+    for (const table of ["goals", "transactions"])
+      assert.equal((await db.query(`select * from ${table}`)).rows.length, 0);
+    await db.query("select nectar_complete_workspace($1,$2)", [
+      owner,
+      rows[0].id,
+    ]);
+    assert.equal(
+      (await db.query("select onboarding_completed from profiles")).rows[0]
+        .onboarding_completed,
+      true,
+    );
+  });

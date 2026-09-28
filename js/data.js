@@ -1,6 +1,10 @@
 /* Supabase repository: all financial operations are scoped to owner AND workspace. */
 (function (root) {
   "use strict";
+  const Errors =
+    typeof module !== "undefined" ? require("./errors.js") : root.NectarErrors;
+  const Core =
+    typeof module !== "undefined" ? require("./core.js") : root.NectarCore;
   const Records =
     typeof module !== "undefined"
       ? require("./records.js")
@@ -45,9 +49,29 @@
   });
   function createRepository(client, userId) {
     if (!userId) throw new Error("Authentication is required.");
-    const checked = async (request) => {
-      const { data, error } = await request;
-      if (error) throw error;
+    const checked = async (
+      request,
+      operation = "data.write",
+      shape = "any",
+    ) => {
+      let result;
+      try {
+        result = await request;
+      } catch (error) {
+        throw Errors.from(error, { operation });
+      }
+      if (!result || typeof result !== "object")
+        throw Errors.from({ code: "INVALID_RESPONSE" }, { operation });
+      const { data, error, status } = result;
+      if (error) throw Errors.from(error, { status, operation });
+      const object = (value) =>
+        value && typeof value === "object" && !Array.isArray(value);
+      if (
+        (shape === "list" && !Array.isArray(data)) ||
+        (shape === "object" && !object(data)) ||
+        (shape === "nullable" && data !== null && !object(data))
+      )
+        throw Errors.from({ code: "INVALID_RESPONSE" }, { status, operation });
       return data;
     };
     const own = (table, workspaceId) => {
@@ -63,6 +87,8 @@
             .order("created_at")
             .order("id")
             .range(offset, offset + 499),
+          table + ".load",
+          "list",
         );
         rows.push(...batch);
         if (!batch.length) return rows;
@@ -79,12 +105,30 @@
         .insert({ ...row, user_id: userId })
         .select(columns[table])
         .single();
-      if (!result.error) return map(result.data);
+      if (!result.error) {
+        if (
+          !result.data ||
+          typeof result.data !== "object" ||
+          Array.isArray(result.data)
+        )
+          throw Errors.from(
+            { code: "INVALID_RESPONSE" },
+            { status: result.status, operation: table + ".insert" },
+          );
+        return map(result.data);
+      }
       if (result.error.code === "23505")
         return map(
-          await checked(own(table, row.workspace_id).eq("id", row.id).single()),
+          await checked(
+            own(table, row.workspace_id).eq("id", row.id).single(),
+            table + ".retry",
+            "object",
+          ),
         );
-      throw result.error;
+      throw Errors.from(result.error, {
+        status: result.status,
+        operation: table + ".insert",
+      });
     }
     function payload(t) {
       return {
@@ -101,7 +145,11 @@
       async load(user, preferredId) {
         if (user.id !== userId)
           throw new Error("Your account changed. Please reload.");
-        let p = await checked(own("profiles").maybeSingle());
+        let p = await checked(
+          own("profiles").maybeSingle(),
+          "profiles.load",
+          "nullable",
+        );
         if (!p) {
           const name =
             String(
@@ -114,8 +162,18 @@
             .insert({ user_id: userId, name })
             .select(columns.profiles)
             .single();
-          if (result.error && result.error.code !== "23505") throw result.error;
-          p = result.data || (await checked(own("profiles").single()));
+          if (result.error && result.error.code !== "23505")
+            throw Errors.from(result.error, {
+              status: result.status,
+              operation: "profiles.insert",
+            });
+          p =
+            result.data ||
+            (await checked(
+              own("profiles").single(),
+              "profiles.retry",
+              "object",
+            ));
         }
         const workspaces = (await all("workspaces")).map(workspace);
         const active =
@@ -149,6 +207,8 @@
       async updateProfile(patch) {
         if (Object.keys(patch).some((k) => k !== "name"))
           throw new Error("Unknown profile field.");
+        if (typeof patch.name !== "string" || patch.name.length > 40)
+          throw new Error("Keep your name within 40 characters.");
         const p = await checked(
           client
             .from("profiles")
@@ -156,6 +216,8 @@
             .eq("user_id", userId)
             .select(columns.profiles)
             .single(),
+          "profiles.update",
+          "object",
         );
         return { profile: { name: p.name || "" } };
       },
@@ -170,6 +232,15 @@
           row = {};
         for (const [key, value] of Object.entries(patch)) {
           if (!fields[key]) throw new Error("Unknown workspace field.");
+          if (key === "currency" && !Core.currencies.includes(value))
+            throw new Error("Choose a supported currency.");
+          if (
+            key === "name" &&
+            (typeof value !== "string" || !value.trim() || value.length > 60)
+          )
+            throw new Error("Give your workspace a name within 60 characters.");
+          if (["startingBalance", "monthlySpendCap"].includes(key))
+            validateAmount(value, true);
           row[fields[key]] = value;
         }
         return workspace(
@@ -181,10 +252,21 @@
               .eq("id", id)
               .select(columns.workspaces)
               .single(),
+            "workspaces.update",
+            "object",
           ),
         );
       },
       createWorkspace(w) {
+        if (
+          !w.name?.trim() ||
+          w.name.length > 60 ||
+          !["personal", "business"].includes(w.kind) ||
+          !Core.currencies.includes(w.currency)
+        )
+          throw new Error(
+            "Choose a workspace name, type and supported currency.",
+          );
         return insertOnce(
           "workspaces",
           { id: w.id, name: w.name, kind: w.kind, currency: w.currency },
@@ -192,11 +274,14 @@
         );
       },
       async initializeWorkspaces(mode) {
+        if (!["personal", "business", "both"].includes(mode))
+          throw new Error("Choose Personal, Business, or Both.");
         await checked(
           client.rpc("nectar_initialize_workspaces", {
             p_expected_user_id: userId,
             p_mode: mode,
           }),
+          "workspaces.initialize",
         );
       },
       async completeWorkspace(id) {
@@ -205,6 +290,7 @@
             p_expected_user_id: userId,
             p_workspace_id: requireWorkspace(id),
           }),
+          "workspaces.complete",
         );
       },
       createTransaction(t, workspaceId, workspaceKind) {
@@ -231,10 +317,15 @@
               .eq("id", t.id)
               .select(columns.transactions)
               .single(),
+            "transactions.update",
+            "object",
           ),
         );
       },
       createGoal(g, workspaceId) {
+        if (!g.name?.trim() || g.name.length > 60)
+          throw new Error("Give your goal a name within 60 characters.");
+        validateAmount(g.target);
         return insertOnce(
           "goals",
           {
@@ -268,7 +359,17 @@
       },
     };
   }
-  const api = { createRepository };
+  function validateAmount(value, zero = false) {
+    if (
+      !Number.isFinite(value) ||
+      value < 0 ||
+      (!zero && value === 0) ||
+      value > 999999999 ||
+      Math.abs(value * 100 - Math.round(value * 100)) > 0.00001
+    )
+      throw new Error("Enter a valid amount with up to two decimal places.");
+  }
+  const api = { createRepository, columns: Object.freeze(columns) };
   if (typeof module !== "undefined") module.exports = api;
   else root.NectarData = api;
 })(globalThis);

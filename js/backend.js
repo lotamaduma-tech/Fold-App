@@ -1,6 +1,29 @@
 /* Supabase initialization and auth only. SDK owns all session/token storage. */
 (function (root) {
   "use strict";
+  const Errors =
+    typeof module !== "undefined" ? require("./errors.js") : root.NectarErrors;
+  const allowedOrigins = new Set([
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://127.0.0.1:4173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4174",
+    "http://localhost:4174",
+    "https://nectarspend.vercel.app",
+    "https://nectarspend.com",
+    "https://www.nectarspend.com",
+  ]);
+  function callbackBase(location) {
+    if (!allowedOrigins.has(location?.origin))
+      throw new Error(
+        "This app address is not configured. Open NectarSpend at nectarspend.com or an approved development address.",
+      );
+    return new URL(
+      location.pathname === "/index.html" ? "/index.html" : "/",
+      location.origin,
+    );
+  }
   function validateConfig(config) {
     const url = config?.SUPABASE_URL?.trim();
     const key = (
@@ -49,7 +72,7 @@
   }
   function createAuth(client, location) {
     // Never take redirect destinations from query strings or user input.
-    const base = new URL(location.pathname, location.origin);
+    const base = callbackBase(location);
     const redirect = (mode) => {
       const url = new URL(base);
       url.searchParams.set("auth", mode);
@@ -57,7 +80,8 @@
     };
     const checked = async (promise) => {
       const result = await promise;
-      if (result.error) throw result.error;
+      if (result.error)
+        throw Errors.from(result.error, { operation: "auth.request" });
       return result.data;
     };
     return {
@@ -67,7 +91,8 @@
       async restore() {
         // Initialization performs the SDK's PKCE code exchange exactly once.
         const initialized = await client.auth.initialize();
-        if (initialized.error) throw initialized.error;
+        if (initialized.error)
+          throw Errors.from(initialized.error, { operation: "auth.restore" });
         const { session } = await checked(client.auth.getSession());
         return session;
       },
@@ -118,6 +143,7 @@
     };
   }
   function connect(config, library, location) {
+    callbackBase(location);
     const { url, key } = validateConfig(config);
     if (!library?.createClient)
       throw new Error(
@@ -142,7 +168,7 @@
     });
     return { client, auth: createAuth(client, location) };
   }
-  const api = { connect, validateConfig, createAuth };
+  const api = { connect, validateConfig, createAuth, callbackBase };
   if (typeof module !== "undefined") module.exports = api;
   else root.NectarBackend = api;
 })(globalThis);
