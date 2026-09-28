@@ -19,10 +19,7 @@
       throw new Error(
         "This app address is not configured. Open NectarSpend at nectarspend.com or an approved development address.",
       );
-    return new URL(
-      location.pathname === "/index.html" ? "/index.html" : "/",
-      location.origin,
-    );
+    return new URL("/", location.origin);
   }
   function validateConfig(config) {
     const url = config?.SUPABASE_URL?.trim();

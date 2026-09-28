@@ -1136,3 +1136,26 @@ legend {
 /* Fit currency labels without splitting a money figure across lines. */
 .summary article{container-type:inline-size;min-width:0}
 .summary .display{white-space:nowrap;font-size:clamp(12px,calc(150cqw / var(--digits,8)),30px)}
+
+/* A compact paper card above the existing mobile navigation. */
+.install-banner[hidden] { display: none; }
+.install-banner {
+  position: fixed;
+  z-index: 30;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  right: max(16px, env(safe-area-inset-right));
+  width: min(440px, calc(100% - 32px));
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+.install-banner img { border-radius: 12px; }
+.install-banner h2 { font-size: 21px; }
+.install-banner p { color: var(--muted-fg); font-size: 14px; }
+.install-actions { grid-column: 1 / -1; display: flex; gap: 12px; }
+.install-actions .primary { width: auto; margin: 0; padding: 8px 24px; }

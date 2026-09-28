@@ -19,7 +19,7 @@ http
       "." + (pathname === "/" ? "/index.html" : pathname),
     );
     const allowed =
-      /^(?:\/|\/index\.html|\/config\.js|\/(?:css|js|assets)\/[a-zA-Z0-9_.-]+)$/;
+      /^(?:\/|\/index\.html|\/config\.js|\/sw\.js|\/manifest\.webmanifest|\/(?:css|js|assets)\/[a-zA-Z0-9_.-]+)$/;
     if (!allowed.test(pathname) || !["GET", "HEAD"].includes(req.method)) {
       res.writeHead(404);
       res.end("Not found");
@@ -43,6 +43,7 @@ http
             ".css": "text/css; charset=utf-8",
             ".js": "text/javascript; charset=utf-8",
             ".png": "image/png",
+            ".webmanifest": "application/manifest+json",
           }[path.extname(file)] || "text/plain",
         "Cache-Control": "no-cache",
         "Referrer-Policy": "no-referrer",

@@ -40,6 +40,8 @@ if (path.dirname(dest) !== root || path.basename(dest) !== "dist")
 fs.rmSync(dest, { recursive: true, force: true });
 fs.mkdirSync(dest);
 fs.copyFileSync(path.join(root, "index.html"), path.join(dest, "index.html"));
+for (const file of ["manifest.webmanifest", "sw.js"])
+  fs.copyFileSync(path.join(root, file), path.join(dest, file));
 for (const dir of ["css", "js", "assets"]) {
   fs.mkdirSync(path.join(dest, dir));
   for (const item of fs.readdirSync(path.join(root, dir), {

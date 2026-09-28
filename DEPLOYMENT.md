@@ -128,3 +128,36 @@ This continuation repaired the canonical timestamp-helper dependency, confirmed 
 The repository audit reviewed remaining legacy product identifiers, loopback origins, service-role references, demo/sample references and the retired RPC. Remaining matches are compatibility database/config names, negative test fixtures, development/redirect documentation, unused legacy CSS selectors, or unchanged third-party vendor code. No real public configuration key appears in tracked source; the only secret-key-shaped match is a deliberately invalid test fixture. `config.js` is ignored and untracked. No financial localStorage persistence or cross-workspace aggregation was introduced.
 
 **Hosted status:** migration 002 is still a manual operator step; it was not applied remotely. Hosted authenticated CRUD, real Google consent, email delivery, production DNS and dashboard configuration were not tested. The zero-row schema probe is the only live Supabase API check performed. Local tests cannot replace post-migration live acceptance.
+
+## PWA and branding update
+
+Auth uses the exact approved current origin and now always returns to the root path, including when started at `/index.html`. Google and signup use `/?auth=callback`; recovery retains `/?auth=recovery` for the existing recovery screen. No query-string destination is accepted. The same-origin logic was already correct; the root-path normalization is the only auth change.
+
+Keep Supabase **Site URL** set to `https://nectarspend.com` and these **Redirect URLs**:
+
+```text
+http://127.0.0.1:5500/**
+http://localhost:5500/**
+https://nectarspend.vercel.app/**
+https://nectarspend.com/**
+https://www.nectarspend.com/**
+```
+
+Leave the Supabase Google provider callback URL unchanged. Add test ports 4173/4174 only if using live auth there.
+
+The supplied `assets/nectarspend-logo.png` produces `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (180), and `favicon.png` (32), preserving its square proportions and existing safe padding. `scripts/generate-icons.ps1` regenerates these using Windows System.Drawing. The visible mark fits inside the maskable safe circle. The supplied flyer is preserved as `assets/nectarspend-social-original.png`; the production `assets/nectarspend-social.png` is proportionally fitted to 1200x630 to match the existing OG/Twitter metadata. Canonical remains `https://nectarspend.com/`.
+
+`manifest.webmanifest` uses name/short name NectarSpend, description Know your money., root start URL/scope/id, standalone display, paper background/theme #f3efe6, and same-origin 192/512 PNG icons with any/maskable purposes.
+
+`sw.js` precaches an explicit list of public shell files. Fetches use network first and fall back to the installed shell only on network failure. No runtime response is written to Cache Storage. Cross-origin requests, non-GET requests, authorization headers, query strings, API routes and config.js are bypassed. Supabase data stays online-only; offline opening offers the static UI, not offline balances, records or mutations. Existing SDK session handling is unchanged. Activation removes only older NectarSpend shell caches. Increment the cache version when changing shell assets. Updates wait until old controlled tabs close; no forced reload interrupts an active financial operation.
+
+The paper install card uses the browser's saved beforeinstallprompt event after an explicit Install click. It is hidden without support or in standalone mode and removed after appinstalled. Not now and native prompt dismissal suppress it for seven days; blocked local storage still allows session dismissal. No simulated iOS installation is offered.
+
+Build with `npm.cmd run build` on Windows (or `npm run build` elsewhere). The build includes the manifest, worker, PWA script and branding images. Vercel serves the worker with no-cache and manifest with application/manifest+json. Redeploy to publish these changes, then verify HTTP 200 and JSON content at:
+
+- https://nectarspend.vercel.app/manifest.webmanifest
+- https://nectarspend.com/manifest.webmanifest
+
+Also verify `/sw.js`, icons and the social image. Use browser Application tools to inspect the manifest, worker and maskable icon. Test real Google/email/recovery flows separately on each configured origin, and installation on a supported device. Automated prompt events exercise the UI only, not real OS installation. Social platforms may require their preview caches to refresh after deployment.
+
+Run `npm test`, `npm run build`, `npm run test:browser`, and `node tests/pwa-browser.cjs`. The browser scripts need the local server on port 4174. The PWA browser test checks actual service-worker registration, safe cached URLs and an offline shell; install events are simulated. Its screenshots are saved under `tests/artifacts/`.

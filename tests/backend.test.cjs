@@ -71,16 +71,16 @@ test("auth forwards real SDK calls with controlled PKCE callback destinations", 
   await auth.signOut();
   assert.equal(
     calls[0][1].options.emailRedirectTo,
-    "https://nectarspend.com/index.html?auth=callback",
+    "https://nectarspend.com/?auth=callback",
   );
   assert.equal(calls[2][1].provider, "google");
   assert.equal(
     calls[2][1].options.redirectTo,
-    "https://nectarspend.com/index.html?auth=callback",
+    "https://nectarspend.com/?auth=callback",
   );
   assert.equal(
     calls[3][2].redirectTo,
-    "https://nectarspend.com/index.html?auth=recovery",
+    "https://nectarspend.com/?auth=recovery",
   );
   assert.equal(calls[4][0], "updateUser");
   assert.equal(calls[5][1].scope, "local");

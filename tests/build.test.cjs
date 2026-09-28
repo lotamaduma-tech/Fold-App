@@ -11,6 +11,7 @@ test("static build publishes only browser assets and rejects privileged configur
   try {
     for (const dir of ["scripts", "js", "css", "assets"])
       fs.mkdirSync(path.join(root, dir));
+    for (const file of ["manifest.webmanifest", "sw.js"]) fs.copyFileSync(file, path.join(root, file));
     fs.copyFileSync("scripts/build.cjs", path.join(root, "scripts/build.cjs"));
     fs.copyFileSync("js/backend.js", path.join(root, "js/backend.js"));
     fs.copyFileSync("js/errors.js", path.join(root, "js/errors.js"));
@@ -18,6 +19,8 @@ test("static build publishes only browser assets and rejects privileged configur
       "assets/nectarspend-social.png",
       path.join(root, "assets/nectarspend-social.png"),
     );
+    for (const file of ["icon-192.png", "icon-512.png", "favicon.png", "apple-touch-icon.png"]) fs.copyFileSync("assets/"+file,path.join(root,"assets",file));
+    fs.copyFileSync("js/pwa.js",path.join(root,"js/pwa.js"));
     fs.writeFileSync(
       path.join(root, "index.html"),
       "<title>NectarSpend</title>",
@@ -45,7 +48,12 @@ test("static build publishes only browser assets and rejects privileged configur
       "css",
       "index.html",
       "js",
+      "manifest.webmanifest",
+      "sw.js",
     ]);
+    for (const file of ["manifest.webmanifest", "sw.js", "js/pwa.js", "assets/icon-192.png", "assets/icon-512.png", "assets/nectarspend-social.png"]) assert.ok(fs.existsSync(path.join(root,"dist",file)),file);
+    const manifest=JSON.parse(fs.readFileSync(path.join(root,"dist/manifest.webmanifest"),"utf8"));
+    for(const icon of manifest.icons) assert.ok(fs.existsSync(path.join(root,"dist",icon.src)));
     assert.ok(!result.stdout.includes(env.SUPABASE_PUBLISHABLE_KEY));
     assert.ok(
       !fs
