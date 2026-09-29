@@ -32,12 +32,19 @@ test("static build publishes only browser assets and rejects privileged configur
       SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture_only",
       SUPABASE_ANON_KEY: "sb_secret_unused_must_not_publish",
     };
+    fs.writeFileSync(path.join(root, "assets/.env"), "PRIVATE=must-not-publish");
+    fs.writeFileSync(path.join(root, "assets/private-config.json"), "{}");
     const result = spawnSync(process.execPath, ["scripts/build.cjs"], {
       cwd: root,
       env,
       encoding: "utf8",
     });
     assert.equal(result.status, 0, result.stderr);
+    assert.ok(!fs.existsSync(path.join(root, "dist/assets/.env")));
+    assert.ok(!fs.existsSync(path.join(root, "dist/assets/private-config.json")));
+    const insecure = spawnSync(process.execPath, ["scripts/build.cjs"], {cwd:root,env:{...env,VERCEL:"1",SUPABASE_URL:"http://localhost:54321"},encoding:"utf8"});
+    assert.notEqual(insecure.status,0);
+    assert.match(insecure.stderr,/HTTPS Supabase/);
     assert.deepEqual(
       fs.readFileSync(path.join(root, "dist/assets/nectarspend-social.png")),
       fs.readFileSync("assets/nectarspend-social.png"),

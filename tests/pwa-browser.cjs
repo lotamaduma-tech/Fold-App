@@ -18,7 +18,7 @@ const assert=require('node:assert/strict');
  assert.equal(await page.locator('#install-banner').isVisible(),false);
  await available();await page.click('#dismiss-install');await available();assert.equal(await page.locator('#install-banner').isVisible(),false);
  await page.reload();await available();assert.equal(await page.locator('#install-banner').isVisible(),false);
- const keys=await page.evaluate(async()=>{const c=await caches.open('nectarspend-shell-v2');return (await c.keys()).map(r=>r.url)});
+ const keys=await page.evaluate(async()=>{const c=await caches.open('nectarspend-shell-v3');return (await c.keys()).map(r=>r.url)});
  assert.ok(keys.length>=17);assert.ok(keys.every(u=>!u.includes('?')&&!u.includes('config.js')&&!u.includes('/auth/')&&!u.includes('/rest/')));
  await context.setOffline(true);await page.reload();assert.equal(await page.title(),'NectarSpend — Know your money.');
  assert.equal(await page.locator('#install-banner').count(),1);

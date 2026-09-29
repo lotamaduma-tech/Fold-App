@@ -30,6 +30,8 @@ if (
   config = context.window.NECTARSPEND_CONFIG || context.window.FOLD_CONFIG;
 }
 const publicConfig = validateConfig(config);
+if ((process.env.VERCEL || process.env.NODE_ENV === "production") && new URL(publicConfig.url).protocol !== "https:")
+  throw new Error("Production builds require an HTTPS Supabase endpoint.");
 config = {
   SUPABASE_URL: publicConfig.url,
   SUPABASE_PUBLISHABLE_KEY: publicConfig.key,
@@ -47,7 +49,8 @@ for (const dir of ["css", "js", "assets"]) {
   for (const item of fs.readdirSync(path.join(root, dir), {
     withFileTypes: true,
   })) {
-    if (item.isFile() && /^[\w.-]+$/.test(item.name))
+    if (item.isFile() && !item.name.startsWith(".") && /^[\w.-]+$/.test(item.name) &&
+      (dir === "js" ? /\.js$/.test(item.name) : dir === "css" ? /\.css$/.test(item.name) : /\.(?:js|png|jpe?g|webp|svg|ico|woff2?)$/.test(item.name) || item.name === "supabase-LICENSE"))
       fs.copyFileSync(
         path.join(root, dir, item.name),
         path.join(dest, dir, item.name),

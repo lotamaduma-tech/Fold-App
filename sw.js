@@ -1,6 +1,6 @@
 /* Cache only this public static shell. Never cache config, API or auth URLs. */
 "use strict";
-const CACHE = "nectarspend-shell-v2";
+const CACHE = "nectarspend-shell-v3";
 const SHELL = [
   "/privacy.html", "/terms.html", "/disclaimer.html", "/css/legal.css",
   "/", "/index.html", "/css/style.css", "/js/pwa.js", "/js/errors.js",

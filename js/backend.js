@@ -147,6 +147,8 @@
   function connect(config, library, location) {
     callbackBase(location);
     const { url, key } = validateConfig(config);
+    if (new URL(location.origin).protocol === "https:" && new URL(url).protocol !== "https:")
+      throw new Error("Production requires an HTTPS Supabase endpoint.");
     if (!library?.createClient)
       throw new Error(
         "The account service could not load. Refresh and try again.",

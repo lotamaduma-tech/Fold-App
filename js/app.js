@@ -512,7 +512,7 @@
 
   function renderHistory() {
     const cats = [...new Set(state.transactions.map((t) => t.category))].sort();
-    return `${workspaceControl()}${header("YOUR RECORDS", "Activity")}<div class="search-wrap">${icon("search")}<input id="history-search" class="search" type="search" aria-label="Search notes and amounts" placeholder="Search notes, amounts…" value="${escape(query)}"></div><div class="segments">${[["all", "All"], ["income", "Money in"], ["expense", "Money out"], ...(!business() ? [["saving", "Savings"]] : [])].map(([key, label]) => `<button data-action="filter" data-filter="${key}" aria-pressed="${filter === key}" class="${filter === key ? "active" : ""}">${label}</button>`).join("")}</div><details class="activity-filters" ${activityCategory || dateFrom || dateTo ? "open" : ""}><summary>Category & dates</summary><label class="field">Category<select id="activity-category"><option value="">All categories</option>${cats.map((c) => `<option ${activityCategory === c ? "selected" : ""}>${escape(c)}</option>`).join("")}</select></label><div class="date-filters"><label class="field">From<input id="date-from" type="date" value="${escape(dateFrom)}"></label><label class="field">To<input id="date-to" type="date" value="${escape(dateTo)}"></label></div><button class="link" data-action="reset-filters">Reset filters</button></details><section id="history-results" aria-live="polite">${historyResults()}</section>`;
+    return `${workspaceControl()}${header("YOUR RECORDS", "Activity")}<div class="search-wrap">${icon("search")}<input id="history-search" maxlength="120" class="search" type="search" aria-label="Search notes and amounts" placeholder="Search notes, amounts…" value="${escape(query)}"></div><div class="segments">${[["all", "All"], ["income", "Money in"], ["expense", "Money out"], ...(!business() ? [["saving", "Savings"]] : [])].map(([key, label]) => `<button data-action="filter" data-filter="${key}" aria-pressed="${filter === key}" class="${filter === key ? "active" : ""}">${label}</button>`).join("")}</div><details class="activity-filters" ${activityCategory || dateFrom || dateTo ? "open" : ""}><summary>Category & dates</summary><label class="field">Category<select id="activity-category"><option value="">All categories</option>${cats.map((c) => `<option ${activityCategory === c ? "selected" : ""}>${escape(c)}</option>`).join("")}</select></label><div class="date-filters"><label class="field">From<input id="date-from" type="date" value="${escape(dateFrom)}"></label><label class="field">To<input id="date-to" type="date" value="${escape(dateTo)}"></label></div><button class="link" data-action="reset-filters">Reset filters</button></details><section id="history-results" aria-live="polite">${historyResults()}</section>`;
   }
 
   function renderGoals() {
@@ -985,7 +985,8 @@
   });
   document.addEventListener("input", (event) => {
     if (event.target.id === "history-search") {
-      query = event.target.value;
+      query = event.target.value.slice(0, 120);
+      event.target.value = query;
       $("#history-results").innerHTML = historyResults();
       refreshIcons();
     }

@@ -2,6 +2,9 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = __dirname;
+const securityHeaders = Object.fromEntries(require("./vercel.json").headers[0].headers
+  .filter(h => h.key !== "Strict-Transport-Security")
+  .map(h => [h.key, h.key === "Content-Security-Policy" ? h.value.replace("; upgrade-insecure-requests", "") : h.value]));
 http
   .createServer((req, res) => {
     let pathname;
@@ -37,6 +40,7 @@ http
         return;
       }
       res.writeHead(200, {
+        ...securityHeaders,
         "Content-Type":
           {
             ".html": "text/html; charset=utf-8",

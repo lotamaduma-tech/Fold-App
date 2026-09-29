@@ -161,6 +161,27 @@ test("composite foreign keys reject another workspace goal, including another wo
       /foreign key|Workspace is not available/,
     );
 });
+test("Account B cannot read, update, delete or forge Account A rows by known IDs", async () => {
+  await as(B);
+  for (const [table, column, id, field, value] of [
+    ["profiles", "user_id", A, "name", "Intruder"],
+    ["transactions", "id", TA, "note", "Intruder"],
+    ["goals", "id", GA, "name", "Intruder"],
+    ["workspaces", "id", WA, "name", "Intruder"],
+  ]) {
+    assert.equal((await db.query(`select * from ${table} where ${column}=$1`, [id])).rows.length, 0);
+    assert.equal((await db.query(`update ${table} set ${field}=$1 where ${column}=$2 returning *`, [value,id])).rows.length, 0);
+    assert.equal((await db.query(`delete from ${table} where ${column}=$1 returning *`, [id])).rows.length, 0);
+  }
+  for (const [sql,args] of [
+    ["insert into profiles(user_id) values ($1)",[A]],
+    ["insert into goals(user_id,workspace_id,name,target) values ($1,$2,'Forged',1)",[A,WA]],
+    ["insert into transactions(user_id,workspace_id,record_kind,amount,category,date) values ($1,$2,'expense',1,'Food',current_date)",[A,WA]],
+    ["insert into workspaces(user_id,name,kind) values ($1,'Forged','personal')",[A]],
+  ]) await assert.rejects(db.query(sql,args), /row-level security|personal workspace|Workspace is not available/);
+  await assert.rejects(db.query("select nectar_initialize_workspaces($1,'personal')",[A]), /Authentication required/);
+  await assert.rejects(db.query("select nectar_complete_workspace($1,$2)",[B,WA]), /Workspace is not available/);
+});
 test("record editing persists and goal deletion unlinks historical records without changing amounts", async () => {
   await as(A);
   await db.query("update transactions set amount=175.50,note=$1 where id=$2", [

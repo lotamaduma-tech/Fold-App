@@ -3,19 +3,19 @@ const handler=()=>import('../supabase/functions/delete-account/handler.mjs');
 const request=(body={confirmation:'DELETE'}, token='valid', origin='https://nectarspend.com',method='POST')=>new Request('https://fixture.supabase.co/functions/v1/delete-account',{method,headers:{origin,'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},...(method==='POST'?{body:JSON.stringify(body)}:{})});
 test('deletion verifies the token and deletes only the verified identity',async()=>{
  const {deletionHandler}=await handler();const deleted=[];
- const run=deletionHandler({verifyUser:async token=>({data:{user:{id:token==='alice'?'alice':'bob'}}}),deleteUser:async id=>{deleted.push(id);return {error:null}}});
+ const run=deletionHandler({consumeAttempt:async()=>true,verifyUser:async token=>({data:{user:{id:token==='alice'?'alice':'bob'}}}),deleteUser:async id=>{deleted.push(id);return {error:null}}});
  assert.equal((await run(request({confirmation:'DELETE'},'alice'))).status,200);assert.deepEqual(deleted,['alice']);
  assert.equal((await run(request({confirmation:'DELETE',user_id:'bob'},'alice'))).status,400);assert.deepEqual(deleted,['alice']);
 });
 test('deletion rejects missing/expired auth, unsafe origins, methods and bad confirmation',async()=>{
  const {deletionHandler}=await handler();let writes=0;
- const run=deletionHandler({verifyUser:async()=>({error:{message:'expired'}}),deleteUser:async()=>{writes++;return {}}});
+ const run=deletionHandler({consumeAttempt:async()=>true,verifyUser:async()=>({error:{message:'expired'}}),deleteUser:async()=>{writes++;return {}}});
  for(const [req,status] of [[request({},''),401],[request(),401],[request({confirmation:'no'}),400],[request(undefined,'valid','https://evil.example'),403],[request(undefined,'valid',undefined,'GET'),405]]) assert.equal((await run(req)).status,status);
  assert.equal(writes,0);
 });
 test('deletion fails closed without leaking provider errors and permits CORS preflight',async()=>{
  const {deletionHandler}=await handler();
- const run=deletionHandler({verifyUser:async()=>({data:{user:{id:'alice'}}}),deleteUser:async()=>({error:{message:'private database details'}})});
+ const run=deletionHandler({consumeAttempt:async()=>true,verifyUser:async()=>({data:{user:{id:'alice'}}}),deleteUser:async()=>({error:{message:'private database details'}})});
  const response=await run(request());assert.equal(response.status,503);assert.equal(response.headers.get('cache-control'),'no-store');assert.ok(!(await response.text()).includes('private'));
  assert.equal((await run(request(undefined,'valid',undefined,'OPTIONS'))).status,204);
 });
